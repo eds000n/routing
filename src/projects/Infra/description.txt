@@ -1,0 +1,55 @@
+This is the INFRA SinalGo project.
+
+In this project we have an INFRA implementation just like the Nakamura's thesis. The implementation 
+provides the following features:
+
+1 - Leader Election Algorithm
+2 - Intra-cluster routing tree formation
+3 - Inter-cluster routing tree formation
+4 - Aggregation tree using the Aggregate Coordinator Distance
+5 - Role migration
+6 - Log generation similar to Nakamura's ns-2.27 implementation
+7 - Perl and R scripts to generate graphics
+
+2 - How to run INFRA
+------------------------------------------------------------------------------------------------------
+There are two different ways to run INFRA. The former is the interactive mode where one can run and
+see the effects of the features listed above on the SinalGo visual environment. Hence, one can see 
+two events and the clusters formations. A third event is schedule to apper after some simulation time.
+When the simulation starts, the sink is depicted in red, the cluster head (Coordinators) in cyan 
+and the clusters members (Colaborators) in green; the nodes that detects the events are in 
+orange and after the cluster formation they change their color to green or cyan (depende on it's role). 
+The black nodes are relay only and the yellow nodes are relay nodes that belong to the routing tree. 
+Blue nodes were CH and looses this condition and are acting as a local CH now.
+After the cluster formation  the sink floods the entire network and the routing tree 
+is generated. Then, the collaborators starts  to transmit their data to sink through their 
+correspondent clusters head and one can see  the role migration feature if it is necessary.
+The second way is non-interactive and aims to collect the informations to generate the results graphics. 
+Those graphfics are useful to compare different techniques and some parameters. A perl script is
+available in the project root directory in order to automate the execution.
+
+3 -  References
+------------------------------------------------------------------------------------------------------
+All concepts and theory used in this project was based in the following paper and thesis.
+
+@INPROCEEDINGS{naka_2006,
+  author = {Eduardo F. Nakamura and Horacio A. B. F. de Oliveira and Luciana
+	F. Pontello and Antonio A. F. Loureiro},
+  title = {On Demand Role Assignment for Event-Detection in Sensor Networks},
+  booktitle = {ISCC '06: Proceedings of the 11th IEEE Symposium on Computers and
+	Communications},
+  year = {2006},
+  pages = {941--947},
+  address = {Washington, DC, USA},
+  publisher = {IEEE Computer Society},
+  doi = {http://dx.doi.org/10.1109/ISCC.2006.110},
+  isbn = {0-7695-2588-1}
+}
+@PHDTHESIS{naka_tese,
+  author = {Nakamura, Eduardo F.},
+  title = {Fus\~ao de Dados em Redes de Sensores Sem Fio},
+  school = {Universidade Federal de Minas Gerais},
+  year = {2007},
+  owner = {heitor},
+  timestamp = {2008.03.13}
+}

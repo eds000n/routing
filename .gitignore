@@ -1,0 +1,20 @@
+# directories
+binaries*
+logs*
+pdfs*
+dot*
+stp*
+
+# out files
+*.dot
+*.stp
+*.out
+
+# c++ files
+srcAG/*.o
+srcAG/sensores
+
+
+# vim tmp files
+*~
+srcAG/*~

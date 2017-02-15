@@ -1,0 +1,26 @@
+This script plots the following type of graphics:
+
+Usual plot
+===========
+./draw -T 0 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
+file2.data file3.data ...
+
+Errorbar
+========
+./draw -T 1 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
+file2.data file3.data ...
+
+Normal with steps (for ladder graph)
+====================================
+./draw -T 2 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
+file2.data file3.data ...
+
+
+Usual Normalized plot (in porcentage)
+=====================
+./draw -T 3 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
+file2.data file3.data ...
+
+where -t defines the graph title, -x the x_axis title, -y the y_axis title and
+-s the filename. By default the script only shows the graphic, it doesn't save
+it
