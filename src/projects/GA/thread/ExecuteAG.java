@@ -79,7 +79,7 @@ public class ExecuteAG implements Runnable{
 		}*/
 		List<String> listtree = new ArrayList<String>();
 		CustomGlobal.treeOptimized.getTreeOptimized(listtree);
-		GANode.debugMsg("DEBUG treeSize: " + listtree.size() + " objVal: " + obj + " generation: " + this.nGenerations + " edges:" );
+		GANode.debugMsg("DEBUG treeSize: " + listtree.size() + " objVal: " + obj + " generation: " + this.nGenerations + " terminals: (0-index) " + GANode.terminals + " edges:"  );
 		for(String s: listtree){
 			String[] uv = s.split(" ");
 			edges.add( new GAEdge( Integer.parseInt(uv[0]), Integer.parseInt(uv[1]) ) );

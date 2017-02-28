@@ -4,6 +4,7 @@
 #include "BRKGA.h"
 #include "Population.h"
 #include <cstdio>
+#include <numeric>
 
 // ./sensores population generations objtype filename [f] [k]
 int main(int argc, char* argv[]) {
@@ -26,7 +27,7 @@ int main(int argc, char* argv[]) {
     k = atof(argv[6]);
   }
   SimplerDecoder decoder(filename, objtype, f, k);     // initialize the decoder
-  const unsigned n = countEdges(decoder.graph);   // size of chromosomes
+  const unsigned m = countEdges(decoder.graph);   // size of chromosomes
   
   const double pe = 0.10;   // fraction of population to be the elite-set
   const double pm = 0.10;   // fraction of population to be replaced by mutants
@@ -40,10 +41,14 @@ int main(int argc, char* argv[]) {
 
   
   // initialize the BRKGA-based heuristic
-  BRKGA< SimplerDecoder, MTRand > algorithm(n, p, pe, pm, rhoe, decoder, rng, K, MAXT);
+  BRKGA< SimplerDecoder, MTRand > algorithm(m, p, pe, pm, rhoe, decoder, rng, K, MAXT);
 
   algorithm.inject_solution(decoder.initial_tree);
-
+  std::cout << "Initial_tree size " << m-std::accumulate(decoder.initial_tree.begin(), decoder.initial_tree.end(), 0) << std::endl;
+  /*int sum = 0;
+  for ( std::vector<double>::iterator it = decoder.initial_tree.begin(); it != decoder.initial_tree.end(); it++)
+	  sum += *it;
+  std::cout << "Initial_tree siz " << sum << std::endl; */
 
   unsigned generation = 0;    // current generation
   
@@ -51,13 +56,19 @@ int main(int argc, char* argv[]) {
   const unsigned X_NUMBER = p / 500;  // exchange top 2 best
   double last = -1;
   int rep = 0;
+  decoder.draw_graph("input_0.eps", "initial graph");
+  decoder.degree_test();
+  decoder.draw_graph("input_wdt.eps", "with degree test");
+  decoder.rsph(1);
+  //std::cout << "===";
+  //decoder.rsph(0);
   do {
     //std::cerr << "Generation " << generation+1 << " of " << MAX_GENS << ": " << algorithm.getBestFitness() << "\n";
     std::cout << "Generation " << generation+1 << " of " << MAX_GENS << ": " << algorithm.getBestFitness() << "\n";
     if(algorithm.getBestFitness() == last)
       rep++;
     else {
-      decoder.decode(algorithm.getBestChromosome(), true);
+      decoder.decode(algorithm.getBestChromosome(), true, generation);
       cout << "-" << endl;
       rep = 0;
     }

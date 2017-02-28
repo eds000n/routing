@@ -7,6 +7,7 @@
 // an edge is given by u-v weight
 //void SimplerDecoder::read_edges(ifstream& file, std::unordered_map<int,SmartGraph::Node>& labels, int edges) {
 void SimplerDecoder::read_edges(ifstream& file, std::unordered_map<int,ListGraph::Node>& labels, int edges) {
+	std::vector<ListGraph::Edge> init_sol;
 	for(int i = 0; i < edges; i++) {
 	  int u, v, in_old_tree;
 	  double w;
@@ -16,11 +17,16 @@ void SimplerDecoder::read_edges(ifstream& file, std::unordered_map<int,ListGraph
 	  ListGraph::Edge e = graph.addEdge(labels[u], labels[v]);
 	  (*weights)[e] = w;
 	  (*edge_chromosome)[e] = i;
-	  if(in_old_tree)
-	 		initial_tree.push_back(0);
-	 	else
-	 		initial_tree.push_back(1);
+	  (*edge_widths)[e] = 0.1;
+	  if(in_old_tree){
+	 	initial_tree.push_back(0);
+		init_sol.push_back(e);
+	  }
+	  else{
+	 	initial_tree.push_back(1);
+	  }
 	}
+	draw_solution(init_sol, 3, "init_sol", 0);
 }
 
 // read the nodes from the file
@@ -35,11 +41,15 @@ void SimplerDecoder::read_nodes(ifstream& file, std::unordered_map<int,ListGraph
 	  file >> id >> terminal >> x >> y >> battery;
 	  //SmartGraph::Node node = graph.addNode();
 	  ListGraph::Node node = graph.addNode();
+	  (*coords)[node] = dim2::Point<float>(x,y);
+	  (*sizes)[node] = 1; //0.5
 	  labels[id] = node;
 	  (*original_id)[node] = id;
 	  if(terminal){
 	    terminals.push_back(node);
 	    (*is_terminal)[node] = true;
+	    (*shapes)[node] = 1;	//Set this shape to a square
+	    (*colors)[node] = 1;
 	  }
 	  //
 	  (*node_weights)[node] = battery;
@@ -111,6 +121,15 @@ SimplerDecoder::SimplerDecoder(char *filename, int objtype, double f, double k) 
 	is_terminal = new ListGraph::NodeMap<bool>(graph, false);
 	node_weights = new ListGraph::NodeMap<double>(graph);
 	edge_chromosome = new ListGraph::EdgeMap<int>(graph);
+	//For plotting
+	coords = new ListGraph::NodeMap<dim2::Point<float> >(graph);
+	sizes = new ListGraph::NodeMap<double>(graph);
+	shapes = new ListGraph::NodeMap<int>(graph);
+	colors = new ListGraph::NodeMap<int>(graph);
+	edge_colors = new ListGraph::EdgeMap<int>(graph);
+	edge_widths = new ListGraph::EdgeMap<double>(graph);
+	n_labels = new ListGraph::NodeMap<string>(graph);
+
 	/*original_id = new SmartGraph::NodeMap<int>(graph);
  	weights = new SmartGraph::EdgeMap<double>(graph);
 	is_terminal = new SmartGraph::NodeMap<bool>(graph, false);
@@ -127,6 +146,7 @@ SimplerDecoder::SimplerDecoder(char *filename, int objtype, double f, double k) 
 	read_edges(file, labels, edges);
 	file.close();
 	// sanity_check();
+	
 }
 
 // destroys the decoder
@@ -134,13 +154,12 @@ SimplerDecoder::~SimplerDecoder() {
 	delete original_id;
 	delete weights;
 	delete is_terminal;
-	//
 	delete node_weights;
-	//
 }
 
 //double SimplerDecoder::compute_value_rec(SmartGraph::Node n, SmartGraph::NodeMap<bool> &visited, SmartGraph::EdgeMap<bool> &in_tree, bool &has_terminal, bool output) const {
-double SimplerDecoder::compute_value_rec(ListGraph::Node n, ListGraph::NodeMap<bool> &visited, ListGraph::EdgeMap<bool> &in_tree, bool &has_terminal, bool output) const {
+//double SimplerDecoder::compute_value_rec(ListGraph::Node n, ListGraph::NodeMap<bool> &visited, ListGraph::EdgeMap<bool> &in_tree, bool &has_terminal, bool output) const {
+double SimplerDecoder::compute_value_rec(ListGraph::Node n, ListGraph::NodeMap<bool> &visited, ListGraph::EdgeMap<bool> &in_tree, bool &has_terminal, std::vector<ListGraph::Edge> &sol, bool output) const {
 	double value = 0, aux;
 	double nodeval = 0;
 	visited[n] = true;
@@ -151,12 +170,14 @@ double SimplerDecoder::compute_value_rec(ListGraph::Node n, ListGraph::NodeMap<b
 		ListGraph::Node v = graph.u(e) != n ? graph.u(e) : graph.v(e);
 		if (visited[v] || in_tree[e] == false) continue;
 		bool child_has_terminal = false;
-		aux = compute_value_rec(v, visited, in_tree, child_has_terminal, output);
+		//aux = compute_value_rec(v, visited, in_tree, child_has_terminal, output);
+		aux = compute_value_rec(v, visited, in_tree, child_has_terminal, sol, output);
 		has_terminal = has_terminal || child_has_terminal;
 		if (child_has_terminal) {
 			value += (*weights)[e] + aux;
 			if (output) {
-				cout << (*original_id)[graph.u(e)] << " " << (*original_id)[graph.v(e)] << endl;	
+				cout << (*original_id)[graph.u(e)] << " " << (*original_id)[graph.v(e)] << endl;
+				sol.push_back(e);
 			}
 			//
 			double wtmp = c_factor*pow( (*node_weights)[v], k_pow );
@@ -177,7 +198,8 @@ double SimplerDecoder::compute_value_rec(ListGraph::Node n, ListGraph::NodeMap<b
 }
 
 //double SimplerDecoder::compute_value(SmartGraph::EdgeMap<bool> &in_tree, bool output) const {
-double SimplerDecoder::compute_value(ListGraph::EdgeMap<bool> &in_tree, bool output) const {
+double SimplerDecoder::compute_value(ListGraph::EdgeMap<bool> &in_tree, bool output, int gen) const {
+	std::vector<ListGraph::Edge> sol;
 	bool has_terminal;
 	ListGraph::NodeMap<bool> visited(graph, false);
 	//SmartGraph::NodeMap<bool> visited(graph, false);
@@ -185,14 +207,17 @@ double SimplerDecoder::compute_value(ListGraph::EdgeMap<bool> &in_tree, bool out
 	for (ListGraph::NodeIt n(graph); n != INVALID; ++n)
 		if((*is_terminal)[n]){
 			//return compute_value_rec(n, visited, in_tree, has_terminal, output);
-			double res = compute_value_rec(n, visited, in_tree, has_terminal, output);
+			//double res = compute_value_rec(n, visited, in_tree, has_terminal, output);
+			double res = compute_value_rec(n, visited, in_tree, has_terminal, sol, output);
 			//cout<<"obj "<<res<<endl;
+			if (output)
+				draw_solution(sol, 1, "sol", gen);
 			return res;
 		}
 	return 0;
 }
 
-double SimplerDecoder::decode(const std::vector< double >& chromosome, bool output) const {	
+double SimplerDecoder::decode(const std::vector< double >& chromosome, bool output, int gen) const {	
 	// ordena o vetor de arestas por peso vezes o chromosome
 	std::vector<ListGraph::Edge> edges;
 	//std::vector<SmartGraph::Edge> edges;
@@ -236,8 +261,6 @@ double SimplerDecoder::decode(const std::vector< double >& chromosome, bool outp
 		}
 	}
 	// poda as arestas e devolve o valor, imprimindo se necessário
-	return compute_value(in_tree, output);
+	return compute_value(in_tree, output, gen);
 }
 
-double rsph(){
-}

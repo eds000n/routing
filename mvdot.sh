@@ -6,4 +6,4 @@ then
 fi
 instance=`ls -trh *.out | tail -n 1`
 mkdir dot/${instance}
-mv gg*.dot dot/${instance}/
+mv t*.dot dot/${instance}/
