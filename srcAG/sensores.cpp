@@ -30,7 +30,8 @@ int main(int argc, char* argv[]) {
   const unsigned m = countEdges(decoder.graph);   // size of chromosomes
   
   const double pe = 0.10;   // fraction of population to be the elite-set
-  const double pm = 0.10;   // fraction of population to be replaced by mutants
+  //const double pm = 0.10;   // fraction of population to be replaced by mutants
+  const double pm = 0.40;   // fraction of population to be replaced by mutants
   const double rhoe = 0.60; // probability that offspring inherit an allele from elite parent
   const unsigned K = 3;   // number of independent populations
   // const unsigned MAXT = 4;  // number of threads for parallel decoding
@@ -45,23 +46,28 @@ int main(int argc, char* argv[]) {
 
   algorithm.inject_solution(decoder.initial_tree);
   std::cout << "Initial_tree size " << m-std::accumulate(decoder.initial_tree.begin(), decoder.initial_tree.end(), 0) << std::endl;
-  /*int sum = 0;
-  for ( std::vector<double>::iterator it = decoder.initial_tree.begin(); it != decoder.initial_tree.end(); it++)
-	  sum += *it;
-  std::cout << "Initial_tree siz " << sum << std::endl; */
 
   unsigned generation = 0;    // current generation
   
-  const unsigned X_INTVL = 100; // exchange best individuals at every 100 generations
-  const unsigned X_NUMBER = p / 500;  // exchange top 2 best
+  const unsigned X_INTVL = 10; // exchange best individuals at every 100 generations
+  //const unsigned X_NUMBER = p / 500;  // exchange top 2 best
+  const unsigned X_NUMBER = 2;  // exchange top 2 best
   double last = -1;
   int rep = 0;
+
+  std::vector< std::vector<ListGraph::Edge> > sols;
   decoder.draw_graph("input_0.eps", "initial graph");
   decoder.degree_test();
   decoder.draw_graph("input_wdt.eps", "with degree test");
-  decoder.rsph(1);
-  //std::cout << "===";
-  //decoder.rsph(0);
+  decoder.rsph(1, sols);
+
+  for ( std::vector< std::vector<ListGraph::Edge> >::iterator it=sols.begin(); it!=sols.end(); ++it) {
+    std::vector<double> tmp_sol(m, 1);
+    for ( std::vector<ListGraph::Edge>::iterator ii=(*it).begin(); ii!= (*it).end(); ++ii )
+      tmp_sol[(*(decoder.edge_chromosome))[*ii]] = 0;
+    algorithm.inject_solution(tmp_sol);
+  }
+
   do {
     //std::cerr << "Generation " << generation+1 << " of " << MAX_GENS << ": " << algorithm.getBestFitness() << "\n";
     std::cout << "Generation " << generation+1 << " of " << MAX_GENS << ": " << algorithm.getBestFitness() << "\n";

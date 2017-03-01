@@ -62,7 +62,7 @@ public:
   void degree_test();
   void draw_graph(const char* file_name, const char* title) const;
   //////////////////// HEURISTICS
-  void rsph(int opt);
+  void rsph(int num, std::vector< std::vector<ListGraph::Edge> >& solutions);
 private:
   void read_nodes(ifstream& file, std::unordered_map<int,ListGraph::Node>& labels, int nodes);
   void read_edges(ifstream& file, std::unordered_map<int,ListGraph::Node>& labels, int edges);

@@ -103,7 +103,7 @@ void SimplerDecoder::draw_solution(std::vector<ListGraph::Edge> &sol, int color,
 
 		//cout << graph.id(graph.u(*it)) << "," << graph.id(graph.v(*it)) << " ";
 	}
-	cout << std::endl;
+	//cout << std::endl;
 	std::stringstream ss;
 	ss << fname << gen << ".eps";
 	graphToEps(graph, ss.str()) 
