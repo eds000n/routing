@@ -23,16 +23,17 @@ public class RequestRouteMessage extends Message{
 		return path;
 	}
 
-	public RequestRouteMessage(int sender, int requester){
-		this.SenderID = sender;
+	public RequestRouteMessage(int requester){
+//		this.SenderID = sender;
 		this.RequesterID = requester;
 		path = new ArrayList<Integer>();
-		path.add(RequesterID);
+//		path.add(RequesterID);
 	}
 	
 	@Override
 	public Message clone() {
-		RequestRouteMessage m = new RequestRouteMessage(SenderID, RequesterID);
+//		RequestRouteMessage m = new RequestRouteMessage(SenderID, RequesterID);
+		RequestRouteMessage m = new RequestRouteMessage(RequesterID);
 		m.addAll(path);
 		return m;
 	}

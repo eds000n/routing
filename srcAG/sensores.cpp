@@ -45,7 +45,9 @@ int main(int argc, char* argv[]) {
   BRKGA< SimplerDecoder, MTRand > algorithm(m, p, pe, pm, rhoe, decoder, rng, K, MAXT);
 
   algorithm.inject_solution(decoder.initial_tree);
+#ifdef DEBUG
   std::cout << "Initial_tree size " << m-std::accumulate(decoder.initial_tree.begin(), decoder.initial_tree.end(), 0) << std::endl;
+#endif
 
   unsigned generation = 0;    // current generation
   

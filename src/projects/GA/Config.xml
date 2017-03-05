@@ -72,7 +72,7 @@
 		<useFixedSeed value="true" />
 
 		<!--The seed to be used by the random number generators if useFixedSeed is set to true.-->
-		<fixedSeed value="31409" />
+		<fixedSeed value="737" />
 
 		<!--***********************************************************************-->
 		<!--  Logging                                                              -->
@@ -264,19 +264,19 @@
 <!-- Std genetic algorithm params: population=2*n generations=100-->
 <Population value="2"/>
 <Generations value="100"/>
-<Objective value="3"/> <!-- Defines the objective function: 1 for normal, 2 for node-weighted (battery), 3 for normalized node-weighted -->  
+<Objective value="1"/> <!-- Defines the objective function: 1 for normal, 2 for node-weighted (battery), 3 for normalized node-weighted -->  
 <FFactor value="1.0"/> <!-- Obj function: sum_i f*w_i^k -->
 <KFactor value="1.0"/>
 <UpdateVariation value="0.05"/>
 
-<SimTime value="10200"/>
+<SimTime value="25250"/>
 <Density value="20"/>
 <Event>
 	<NumEvents value = "6" />
 	<Time value = "1000" />
 	<DataRate value = "1" />
 	<EventSize value = "50" />
-	<EventEnd value = "10100" />
+	<EventEnd value = "25100" />
 	<EventStart1 value = "2000" />
 	<EventStart2 value = "2500" />
 	<EventStart3 value = "3000" />

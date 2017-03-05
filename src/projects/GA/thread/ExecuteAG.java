@@ -31,24 +31,27 @@ public class ExecuteAG implements Runnable{
 //	GANode n;
 	private static Process pr = null;				//ONLY process running the algorithm 
 	private Runtime rt = null;
-	private String cmd = null;
 	private boolean executing = true;
 	
 	public ExecuteAG(){
 //		this.n = n;
 		
 		this.rt = Runtime.getRuntime();
+		
+	}
+	
+	private String getCmd(){
 		try{
 			int p = sinalgo.configuration.Configuration.getIntegerParameter( "Population" )*Tools.getNodeList().size();
 	        int g = sinalgo.configuration.Configuration.getIntegerParameter( "Generations" );
 	        String GAexec = "srcAG/sensores";
 	        String GAargs ;//= " " + p + " " + g +" 1 srcAG/log.dat 1 1";
 	        if ( GANode.objFunction==1 ){
-	        	GAargs = " " + p + " " + g +" 1 srcAG/log.dat";
+	        	GAargs = " " + p + " " + g +" 1 srcAG/log" + GANode.numSPTFiles + ".dat";
 	        }else if ( GANode.objFunction==2 ){
-	        	GAargs = " " + p + " " + g +" 2 srcAG/log.dat " + GANode.fFactor + " " + GANode.kFactor;
+	        	GAargs = " " + p + " " + g +" 2 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.fFactor + " " + GANode.kFactor;
 	        }else{
-	        	GAargs = " " + p + " " + g +" 3 srcAG/log.dat " + GANode.fFactor + " " + GANode.kFactor;
+	        	GAargs = " " + p + " " + g +" 3 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.fFactor + " " + GANode.kFactor;
 	        }
 	        File f = new File(GAexec);
 	        if (!f.exists() || !f.canExecute()){
@@ -56,14 +59,12 @@ public class ExecuteAG implements Runnable{
 	        	Tools.fatalError("sensores program not found, compile it first and check its execute permission");
 	        	Tools.exit();
 	        }
-	        this.cmd = GAexec + GAargs;
-
+	        return GAexec + GAargs;
 		}catch(Exception e){
 			System.out.println(e.toString());
             e.printStackTrace();
 		}
-        
-		
+		return "";
 	}
 	
 	public void SendSetRouteMessage(int n, double obj){
@@ -189,8 +190,8 @@ public class ExecuteAG implements Runnable{
 				try {
 
 					//            Process pr = rt.exec("srcAG/sensores 10*n 1000 srcAG/log.dat");
-					pr = rt.exec(cmd);
-					GANode.debugMsg("Thread " + Thread.currentThread().getId() + " executing genetic algorithm by: " + cmd);
+					pr = rt.exec(getCmd());
+					GANode.debugMsg("Thread " + Thread.currentThread().getId() + " executing genetic algorithm by: " + getCmd());
 					attachExitDetector();
 
 					BufferedReader input = new BufferedReader(new InputStreamReader(pr.getInputStream()));

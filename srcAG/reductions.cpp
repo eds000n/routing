@@ -74,7 +74,9 @@ void SimplerDecoder::degree_test(){
 }
 
 void SimplerDecoder::draw_graph(const char* file_name, const char* title) const{
+#ifdef DEBUG	
 	std::cout<< "nodes " << countNodes(graph) << " edges: " << countEdges(graph) << std::endl;
+#endif
 	graphToEps(graph, file_name)
 	  .coords(*coords)
 	  .nodeShapes(*shapes)

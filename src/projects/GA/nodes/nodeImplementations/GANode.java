@@ -199,7 +199,7 @@ public class GANode extends Node {
 	public static boolean computingRoutingTree = false;
 
 	
-	private int numSPTFiles = 0;
+	public static int numSPTFiles = 0;
 	private boolean runUpdateAdjacencyMatrix = false;
 	
 	@Override
@@ -515,6 +515,7 @@ public class GANode extends Node {
 					runGAAlgorithm(requestRouteMessage.getRequesterID(), 1, shortestPathToTree);
 			}
 		}else{ //add its ID to the path and retransmit the message
+			debugMsg("path NOT IN SINK " + requestRouteMessage.getPath() + " requested by " + requestRouteMessage.getRequesterID(),2);
 			requestRouteMessage.setSenderID(this.ID);
 			requestRouteMessage.add(this.ID);
 			MessageTimer timer = new MessageTimer(requestRouteMessage, Tools.getNodeByID(this.NextHopSink));
@@ -544,7 +545,7 @@ public class GANode extends Node {
 				nodes.add(Integer.parseInt(uv[1]));
 		}
 		
-		debugMsg(">>> Shortest paths: current tree" + nodes); //nodes is 1-indexed, u is 0-indexed
+		debugMsg(">>> Shortest paths: nodes from the current tree" + nodes); //nodes is 1-indexed, u is 0-indexed
 		ArrayList<Integer> parent = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
 		int connecting_node = (int)nodes.get(0)-1;
 		int dmin = bfs(u, connecting_node, parent);
@@ -581,7 +582,7 @@ public class GANode extends Node {
 			msg += parent.get(tmp)+" ";
 			tmp = parent.get(tmp);
 		}
-		debugMsg(msg);
+		debugMsg(msg, 2);
 	}
 	
 	/**
@@ -660,10 +661,11 @@ public class GANode extends Node {
 		}
 		
 		try {
+			GANode.numSPTFiles++; //Counting the number of files for SPT and NEATO
 			int aliveNodes = 0;
 			for(Integer i: GANode.UpNodes)
 				aliveNodes += i;
-			FileWriter file = new FileWriter( "srcAG/log.dat" );
+			FileWriter file = new FileWriter( "srcAG/log" + GANode.numSPTFiles + ".dat" );
 			PrintWriter printFile = new PrintWriter( file );
 //			printFile.println(nodes.size() + " " + edges.size());
 			printFile.println( aliveNodes + " " + edges.size());
@@ -694,8 +696,8 @@ public class GANode extends Node {
 			file.close();
 			
 			//Print file in SPT format
-			String stpname = String.format("ff%04d.stp", this.numSPTFiles);
-			String dotname = String.format("t" + Global.currentTime + "_gg%04d.dot", this.numSPTFiles);
+			String stpname = String.format("ff%04d.stp", GANode.numSPTFiles);
+			String dotname = String.format("t" + Global.currentTime + "_gg%04d.dot", GANode.numSPTFiles);
 			
 			STPWriter sptfile = new STPWriter(stpname, this.objFunction);
 			sptfile.setInput(nodes, edges);
@@ -709,7 +711,6 @@ public class GANode extends Node {
 			debugMsg("Printing dot file " + dotname + " and stp file " + stpname,1);
 			
 			
-			numSPTFiles ++; //Counting the number of files for SPT and NEATO
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -826,7 +827,7 @@ public class GANode extends Node {
 			debug_msg = "DeadNode";
 			PrintGAInput(-1, new ArrayList<Integer>(), true);
 		}
-		
+		debugMsg(debug_msg, 2);
 		//execute the algorithm. Once the algorithm calculates a routing tree it schedules a SetRouteMessage to be sent
 		if ( GANode.threadGA == null ){
 			GANode.executeAG = new ExecuteAG(); 
@@ -1610,7 +1611,8 @@ public class GANode extends Node {
 			this.setColor( Color.RED );
 			
 			if(!this.requestedRoute){
-				RequestRouteMessage req = new RequestRouteMessage(this.ID, this.ID);
+//				RequestRouteMessage req = new RequestRouteMessage(this.ID, this.ID);
+				RequestRouteMessage req = new RequestRouteMessage(this.ID);
 				req.add(this.ID);
 				MessageSPTTimer routeTimer = new MessageSPTTimer(req, Tools.getNodeByID( this.NextHopSink ));
 				routeTimer.startRelative(0.0001, this);
