@@ -57,11 +57,13 @@ function exec_simulation()
 	kfactor="1"
 	#dimensions=[248,350,495,700,990]
 	cmd_events_positions="-overwrite Event/NumEvents=$numEvents"
+	event_end_times=""
 	for ne in $events
 	do
 		x[$ne]=$((${xi[$ne]}%$dimx))
 		y[$ne]=$((${yi[$ne]}%$dimy))
 		cmd_events_positions="${cmd_events_positions} -overwrite Event/Xposition${ne}=${x[$ne]} -overwrite Event/Yposition${ne}=${y[$ne]}"
+		event_end_times="${event_end_times} -overwrite Event/EventEnd${ne}=25500"
 	done
 	#for ne in $events
 	#do
@@ -69,20 +71,20 @@ function exec_simulation()
 
 		dr=$DATARATE
 		if [ $1 == "GA" ]; then
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=1 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions}  > ${n}-${ne}-${density}-${seed}-${project}-${dr}.1.out"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=1 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.1.out"
 			echo $cmd >> .cmdfile
 			echo "./mvstp.sh" >>.cmdfile
 			echo "./mvdot.sh" >>.cmdfile
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=2 -overwrite FFactor=0.1 -overwrite KFactor=2 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.2.out"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=2 -overwrite FFactor=0.1 -overwrite KFactor=2 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times}  > ${n}-${ne}-${density}-${seed}-${project}-${dr}.2.out"
 			echo $cmd >> .cmdfile
 			echo "./mvstp.sh" >>.cmdfile
 			echo "./mvdot.sh" >>.cmdfile
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=3 -overwrite FFactor=0.5 -overwrite KFactor=1.5 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.3.out"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=3 -overwrite FFactor=0.5 -overwrite KFactor=1.5 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.3.out"
 			echo $cmd >> .cmdfile
 			echo "./mvstp.sh" >>.cmdfile
 			echo "./mvdot.sh" >>.cmdfile
 		else
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.out"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.out"
 			echo $cmd >> .cmdfile
 		fi
 	#done
@@ -106,11 +108,11 @@ function scenario1(){
 function scenario2(){
 	echo "#scenario2: varying number of events $1 $2" >> .cmdfile
 	density=42
-	nodes=1024
+	n=1024
 	events="1 2 3 4 5" #6 is already included in scenario1
 	for ne in $events
 	do
-		exec_simulation $1 $2 $ne $nodes $density
+		exec_simulation $1 $2 $ne $n $density
 	done
 }
 
@@ -119,11 +121,11 @@ function scenario2(){
 function scenario3(){
 	echo "#scenario3: vaying density $1 $2" >> .cmdfile
 	density="20 30" #42 is already included in scenario1
-	nodes=1024
+	n=1024
 	ne=6
 	for d in $density
 	do
-		exec_simulation $1 $2 $ne $nodes $d
+		exec_simulation $1 $2 $ne $n $d
 	done
 }
 

@@ -59,28 +59,29 @@ def main():
     xmin=0
     xmax=0
     for a in args:
+        label=".".join(a.split("data")[0].split(".")[1:-1])
         print "Processing file ", a
         if type_g == 0:         #normal plot
             x, y = np.loadtxt(a, unpack=True)
             xmin=min(x)
             xmax=max(x)
-            addplot(x,y,a.split(".")[1])
+            addplot(x,y,label)
         elif type_g == 1:       #errorbar plot
             x, y, ymin, ymax =np.loadtxt(a, unpack=True)
             xmin=min(x)
             xmax=max(x)
             yerror=[ymin, ymax]
-            adderrorbar(x,y,yerror,a.split(".")[1])
+            adderrorbar(x,y,yerror,label)
         elif type_g == 2:       #ladder
             x, y =np.loadtxt(a, unpack=True)
             xmin=min(x)
             xmax=max(x)
-            addladder(x,y,a.split(".")[1])
+            addladder(x,y,label)
         elif type_g == 3:
             x, y =np.loadtxt(a, unpack=True)
             xmin=min(x)
             xmax=max(x)
-            addnormplot(x,y,a.split(".")[1])
+            addnormplot(x,y,label)
 
     plt.legend(loc=2)
     plt.xlabel(label_x)
