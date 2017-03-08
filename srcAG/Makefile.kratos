@@ -1,5 +1,5 @@
 # Macros:
-#Compile me on agamenon, others doesn't have the required libs
+#Compile me on kratos, others doesn't have the required libs
 #CFLAGS= -O3 -fopenmp -lemon -std=c++11 
 #CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -std=c++0x
 CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -std=gnu++0x
@@ -8,7 +8,7 @@ CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -std=gnu++0x
 OBJECTS= Decoder.o sensores.o reductions.o heuristics.o SimplerDecoder.o
 TEST_OBJECTS = test_reductions.o reductions.o heuristics.o SimplerDecoder.o
 #OBJECTS= Decoder.o sensores.o SimplerDecoder.o
-CPP = g++
+CPP = g++-4.6
 # CPP = clang++
 
 # Targets:

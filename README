@@ -1,0 +1,25 @@
+*.out: Output of the simulation
+binaries: Binary files (.class)
+build.xml: For building 
+dot
+genDots.sh
+license.txt
+logs
+mvdot.sh
+mvdot.sh~
+mvstp.sh
+mvstp.sh~
+pdfs
+plots
+runstp.sh
+simulation.sh
+simulationEE.sh
+simulationFDN.GA.sh
+simulationFDN.sh
+sinalgo
+sinalgo.bat
+src
+srcAG
+startSimulation.sh
+stp
+timelife
