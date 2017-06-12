@@ -15,6 +15,6 @@ int main(int argc, char* argv[]){
 	SimplerDecoder decoder(filename, objtype, f, k);
 
 	decoder.draw_graph("input_0.eps", "initial graph");
-	//decoder.degree_test();
+	decoder.degree_test();
 	decoder.draw_graph("input_wdt.eps", "with degree test");
 }

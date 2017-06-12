@@ -90,11 +90,10 @@ private:
   /////////////////// REDUCTIONS 
   void non_terminal_degree_one( ListGraph::Node n);
   void non_terminal_degree_two( ListGraph::Node n );
-  void terminal_degree_one();
+  void terminal_degree_one( ListGraph::Node n );
   void terminal_degree_two();
   void minimum_terminal_edge();
-  
-
+  void contract( ListGraph::Node& v_i, ListGraph::Node& v_j );
 
   //////////////////// utilities for debugging
   //void paint_solution(std::vector<ListGraph::Edge>& sol, int color) const;

@@ -75,7 +75,9 @@ void SimplerDecoder::rsph(int num, std::vector< std::vector<ListGraph::Edge> >& 
 
 		std::vector<ListGraph::Edge> sol( sol_set.begin(), sol_set.end() );
 		
+#ifdef DEBUG
 		draw_solution( sol, 2, "rsph", graph.id(*it) );
+#endif
 		//std::cout << "begining from terminal " << graph.id(*it) << " " << sol.size() << std::endl;
 		solutions.push_back(sol);
 	}

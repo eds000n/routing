@@ -33,7 +33,7 @@ void SimplerDecoder::non_terminal_degree_two( ListGraph::Node n ){
 				if (  n == graph.u(e) )
 					n1 = graph.v(e);
 				else
-					n1 =  graph.u(e);
+					n1 = graph.u(e);
 						
 			}
 			else if ( c == 1 ){
@@ -50,7 +50,18 @@ void SimplerDecoder::non_terminal_degree_two( ListGraph::Node n ){
 	}
 }
 
-void SimplerDecoder::terminal_degree_one(){
+void SimplerDecoder::terminal_degree_one( ListGraph::Node n ){
+	int degree = countIncEdges(graph, n);
+	ListGraph::Node v_i = n;
+	if ( degree == 1 && (*is_terminal)[n] ){
+		for ( ListGraph::IncEdgeIt e(graph, n); e!=INVALID; ++e ){
+			ListGraph::Node v_j = graph.u(e);
+			if ( v_j == n )
+				v_j = graph.v(e);
+			SimplerDecoder::contract(n, v_j);
+			contract(n,v_j);
+		}
+	}
 }
 
 void SimplerDecoder::terminal_degree_two(){
@@ -59,18 +70,91 @@ void SimplerDecoder::terminal_degree_two(){
 void SimplerDecoder::minimum_terminal_edge(){
 }
 
-void SimplerDecoder::degree_test(){
-	//std::stringstream ss;
-	//draw_graph("input_0.eps", "initial input");
-	for ( ListGraph::NodeIt n(graph); n!=INVALID; ++n){
-		non_terminal_degree_one( n );
-		//non_terminal_degree_two( n );
-		terminal_degree_one();
-		terminal_degree_two();
-		minimum_terminal_edge();
+///
+// contract node v_j into node v_i according to the contraction definition given in
+// A Generic Approach to Solving the Steiner Tree Problem and Variants pp. 19
+void SimplerDecoder::contract( ListGraph::Node& v_i, ListGraph::Node& v_j){
+	for ( ListGraph::IncEdgeIt e(graph, v_j); e!=INVALID; ++e ){
+		ListGraph::Node v_k = graph.u(e);
+		if ( v_k == v_j )
+			v_k = graph.v(e);
+		if ( v_k == v_i )
+			continue;
+		ListGraph::Edge e_ik;
+
+
+		/// This block searches for the edge (v_i,v_k)
+		bool found = false;
+		for ( ListGraph::IncEdgeIt e_tmp(graph, v_k); e_tmp!=INVALID; ++e_tmp ){
+			if ( (graph.u(e_tmp)==v_i && graph.v(e_tmp)==v_k) || (graph.v(e_tmp)==v_i && graph.u(e_tmp)==v_k) ){
+				e_ik = e_tmp;
+				found = true;
+				break;
+			}
+		}
+		cout<<(*original_id)[v_i]<<" "<<(*original_id)[v_k];
+		cout<<" found ?"<<found<<endl;
+
+		if (found && (*weights)[e_ik] > (*weights)[e] ){
+			(*weights)[e_ik] = (*weights)[e];
+#ifdef DEBUG
+			cout<<"found and replacing cost"<<endl;
+#endif
+		}
+		else if ( !found ){
+			//e_ik = graph.addEdge(v_i, v_k);
+			graph.addEdge(v_i, v_k);
+			//(*weights)[e_ik] = (*weights)[e];
+#ifdef DEBUG
+			cout<<"not found and adding edge with its cost"<<endl;
+#endif
+		}
+
+		/*if ( e_ik==INVALID ){
+			e_ik = graph.addEdge(v_i, v_k);
+			(*weights)[e_ik] = (*weights)[e];
+		}else if ( e_ik!=INVALID && (*weights)[e_ik] > (*weights)[e] ){
+			(*weights)[e_ik] = (*weights)[e];
+		}*/
+			
 	}
-	//std::cout<< "nodes " << countNodes(graph) << " edges: " << countEdges(graph) << std::endl;
-	//draw_graph("input_wdt.eps", "after DT reduction");
+	int pos = -1;
+	for ( int i = 0; i<terminals.size() ; i++ ) 
+		if ( terminals[i] == v_j ){
+			terminals.push_back(v_i);
+			pos = i;
+			break;
+		}
+#ifdef DEBUG
+	cout<<"erase"<<endl;
+	//graph.erase(v_j);
+	cout<<"erased"<<endl;
+#endif
+	if ( pos != -1 )
+		terminals.erase(terminals.begin()+pos);
+}
+
+void SimplerDecoder::degree_test(){
+#ifdef DEBUG
+	std::stringstream ss;
+	draw_graph("input_0.eps", "initial input");
+#endif
+	while(1){
+		int n0 = countNodes(graph);
+		for ( ListGraph::NodeIt n(graph); n!=INVALID; ++n){
+			non_terminal_degree_one( n );
+			non_terminal_degree_two( n );
+			//terminal_degree_one( n );FIXME
+			//terminal_degree_two();
+			//minimum_terminal_edge();
+		}
+		if ( n0 == countNodes(graph) )
+			break;
+	}
+#ifdef DEBUG
+	std::cout<< "nodes " << countNodes(graph) << " edges: " << countEdges(graph) << std::endl;
+#endif
+	draw_graph("input_wdt.eps", "after DT reduction");
 }
 
 void SimplerDecoder::draw_graph(const char* file_name, const char* title) const{
@@ -78,11 +162,12 @@ void SimplerDecoder::draw_graph(const char* file_name, const char* title) const{
 	std::cout<< "nodes " << countNodes(graph) << " edges: " << countEdges(graph) << std::endl;
 #endif
 	graphToEps(graph, file_name)
+	  .scaleToA4()
 	  .coords(*coords)
 	  .nodeShapes(*shapes)
 	  .nodeSizes(*sizes)
 	  .nodeTexts(*original_id)
-	  .nodeTextSize(.01)
+	  .nodeTextSize(.025)
 	  .distantColorNodeTexts()
 	  .nodeColors(composeMap(palette,*colors))
 	  .edgeWidths(*edge_widths)

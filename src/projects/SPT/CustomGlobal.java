@@ -154,7 +154,7 @@ public class CustomGlobal extends AbstractCustomGlobal{
 		
 		//double Rate =  (double) 60 / SPTNode.DataRate;
 
-		if(SPTNode.Edges>1){
+//		if(SPTNode.Edges>1){
 			SPTNode.SPT.logln( 
 				SPTNode.EventsTimes+ "\t"
 			     + SPTNode.EventsAmount +"\t"			     
@@ -187,7 +187,7 @@ public class CustomGlobal extends AbstractCustomGlobal{
 					+((SPTNode)next).getBateria().getEnergy()
 				);
 			}
-		}
+//		}
 	}
 	
 

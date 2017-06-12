@@ -60,22 +60,166 @@ function get_confidence_interval(){
 }
 
 #plot lifetime
+#This needs the *.outs of the instances
 function plot_lifetime(){
 	if [ -e lifetime.data ]
 	then
 		rm lifetime.data
 	fi
-	for file in `ls outs/*.out | grep GA`
-	do 
-		echo $file;
-		nodes=`grep "reported itself as dead with battery of" $file | wc -l`
-		echo $file $nodes >> lifetime.data
-	done
-	./draw.py -T 3 -t "Lifetime" -x "Lifetime (s)" -y "% of dead nodes" -s lifetime.png lifetime.data
-}
+	rm scenariol.*.data	#clean lifetime data
+	rm scenarioc.*.data	#clean disconnected nodes data
+	#for file in `ls outs/*.out | grep GA`
+	files_btmp=""
+	files_ctmp=""
+	for file in $@
+	do
+		bfile=`basename $file`
+		n=`echo $bfile | cut -d"-" -f1`
+		ne=`echo $bfile | cut -d"-" -f2`
+		de=`echo $bfile | cut -d"-" -f3`
+		#seed=`echo $bfile | cut -d"-" -f4`
+		dr=`echo $bfile | cut -d"-" -f5`
+		st=`echo $bfile | cut -d"-" -f6`
+		alg=`echo $bfile | cut -d"-" -f7`
+		#rest=`echo $bfile | cut -d"-" -f7`
+		#preprocessing=`echo $bfile | cut -d"-" -f7 | cut -d"." -f1`
+		#at=`echo $bfile | cut -d"-" -f7 | cut -d"." -f2` #algorithm type (1: normal, 2:node weighted, 3:normalized node weighted)
+		total=`echo $bfile | cut -d"-" -f1`
+		bfile="scenariol.${n}${ne}${de}${dr}${alg}.data"
+		cfile="scenarioc.${n}${ne}${de}${dr}${alg}.data"
+		#bfile="scenariol.${n}${ne}${de}${alg}${dr}${at}-${preprocessing}.data"
+		#cfile="scenarioc.${n}${ne}${de}${alg}${dr}${at}-${preprocessing}.data"
+		if [ -e ".tmp.$bfile" ] ; then
+			rm ".tmp.$bfile"
+			rm ".tmp.$cfile"
+		else
+			files_btmp="$files_btmp ${bfile}"
+			files_ctmp="$files_ctmp ${cfile}"
+		fi
+		echo 0 $total >> ".tmp.$bfile"
+		echo 0 $total >> ".tmp.$cfile"
+		#read m
+		IFS=$'\n'
+		for line in `grep "connected nodes" $file`			## processing disconnected nodes
+		do
+			sim_time=`echo $line | cut -d" " -f2`
+			cur_total=`echo $line | cut -d" " -f11`		#UNCOMMENT ME!!
+			#cur_total=`echo $line | cut -d" " -f9`			#COMMENT ME!
+			echo $sim_time $cur_total >> ".tmp.$cfile"
+		done
+		#read m
+		for line in `grep "reported itself as dead with battery of" $file`	## processing dead nodes
+		do
+			let "total-=1"
+			t=`echo $line | cut -d"]" -f1 | cut -d"[" -f2`
+			echo $t $total >> ".tmp.$bfile"
+		done
 
-function plot_connectivity(){
-	./draw.py -T 3 -t "Connectivity"  -x "Time (s)" -y "% of connected nodes" -s connectivity.png file1.data
+		declare -a xticks=(`seq 2000 500 21000`);
+		IFS=' '
+
+		i=0
+		val=$total
+		while read line 
+		do
+			tmp=`echo $line | xargs`
+			c_time=`echo $tmp | cut -d" " -f1`
+
+			if [ $i -ge ${#xticks[@]} ]
+			then
+				break
+			fi
+			cd_time=${xticks[${i}]}
+			cmp=`echo "$c_time"'>='"${cd_time}" | bc -l`
+			while [ $cmp -eq 1 ]
+			do
+				echo ${xticks[${i}]} ${val} >> .tmp${bfile}
+				let "i+=1";
+				if [ $i -ge ${#xticks[@]} ]
+				then
+					break
+				fi
+				cd_time=${xticks[${i}]}
+				cmp=`echo "$c_time"'>='"${cd_time}" | bc -l`
+			done
+			val=`echo $tmp | cut -d" " -f2`
+		done < ".tmp.$bfile"
+		if [ -e ${bfile} ]
+		then
+			awk '{print $2}' .tmp${bfile} > .tmp
+			paste ${bfile} .tmp > .tmp2
+			mv .tmp2 ${bfile}
+			rm .tmp
+			rm .tmp${bfile}
+		else
+			mv .tmp${bfile} ${bfile}
+		fi
+		while read line
+		do
+			tmp=`echo $line | xargs` 
+			echo $tmp >> .tmp
+		done < ${bfile}
+		mv .tmp ${bfile}
+
+		j=0
+		val=$total
+		while read line
+		do
+			tmp=`echo $line | xargs`
+			c_time=`echo $tmp | cut -d" " -f1`
+			if [ $j -ge ${#xticks[@]} ]
+			then
+				break
+			fi
+			cd_time=${xticks[${j}]}
+			cmp=`echo "$c_time"'>='"${cd_time}" | bc -l`
+			while [ $cmp -eq 1 ]
+			do
+				echo ${xticks[${j}]} ${val} >> .tmp${cfile}
+				let "j+=1"
+				if [ $j -ge ${#xticks[@]} ]
+				then
+					break
+				fi
+				cd_time=${xticks[${j}]}
+				cmp=`echo "$c_time"'>='"${cd_time}" | bc -l`
+			done
+			val=`echo $tmp | cut -d" " -f2`
+		done < ".tmp.$cfile"
+		if [ -e ${cfile} ]
+		then
+			awk '{print $2}' .tmp${cfile} > .tmp
+			paste ${cfile} .tmp > .tmp2
+			mv .tmp2 ${cfile}
+			rm .tmp
+			rm .tmp${cfile}
+		else
+			mv .tmp${cfile} ${cfile}
+		fi
+		while read line
+		do
+			tmp=`echo $line | xargs`
+			echo $tmp >> .tmp
+		done < ${cfile}
+		mv .tmp ${cfile}
+	done
+	for file in $files_btmp
+	do
+		awk -f ci2.awk -v out_file=".tmp$file" $file 
+		mv ".tmp$file" $file
+	done
+	for file in $files_ctmp
+	do
+		awk -f ci2.awk -v out_file=".tmp$file" $file
+		mv ".tmp$file" $file
+	done
+
+	./draw.py -T 5 -t "Lifetime" -x "Lifetime (s)" -y "% of dead nodes" -s lifetime.png $files_btmp
+	echo 'Plotting with ./draw.py -T 5 -t "Lifetime" -x "Lifetime (s)" -y "% of dead nodes" -s lifetime.png' "$files_btmp"
+	./draw.py -T 5 -t "Connectivity time" -x "Lifetime (s)" -y "% of disconnected nodes" -s disconnected.png $files_ctmp
+	echo './draw.py -T 5 -t "Connectivity time" -x "Lifetime (s)" -y "% of disconnected nodes" -s disconnected.png' "$files_ctmp"
+	rm .tmp.scenariol.*.data
+	rm .tmp.scenarioc.*.data
 }
 
 #plot {datapackets, overhead, eff, tree_cost} vs network size
@@ -125,7 +269,7 @@ function plot_ne(){
 			scenario2_t_file="t_scenario2.${alg}.data"
 			tmps_d="$tmps_d ${scenario2_d_file}"
 			tmps_o="$tmps_o ${scenario2_o_file}"
-			#tmps_e="$tmps_d ${scenario2_e_file}"
+			#tmps_e="$tmps_e ${scenario2_e_file}"
 			tmps_t="$tmps_t ${scenario2_t_file}"
 			for ne in $events
 			do
@@ -203,9 +347,12 @@ function plot_ns(){
 		done
 	done
 	./draw.py -T 1 -t "Datapackets" -x "# of nodes" -y "Packets (\$ \\times 10^3\$)" -s ns_packets.png $tmps_d
+	echo 'Plotting with ./draw.py -T 1 -t "Datapackets" -x "# of nodes" -y "Packets (\$ \\times 10^3\$)" -s ns_packets.png' "$tmps_d"
 	./draw.py -T 1 -t "Overhead" -x "# of nodes" -y "Packets (\$ \\times 10^3\$)" -s ns_overhead.png $tmps_o
+	echo 'Plotting with ./draw.py -T 1 -t "Overhead" -x "# of nodes" -y "Packets (\$ \\times 10^3\$)" -s ns_overhead.png' "$tmps_o"
 	#./draw.py -T 1 -t "Efficiency" -x "# of events" -y "Packets (x10^3)" -s ns_eff.png $tmps
 	./draw.py -T 1 -t "Tree Cost" -x "# of nodes" -y "# of Steiner Nodes" -s ns_treesize.png $tmps_t
+	echo 'Plotting with ./draw.py -T 1 -t "Tree Cost" -x "# of nodes" -y "# of Steiner Nodes" -s ns_treesize.png' "$tmps_t"
 }
 
 #plot {datapackets, overhead, eff, tree_cost} vs density
@@ -277,6 +424,10 @@ function plot_rsph(){
 	./draw.py -T 2 -t "Impact of Repetitive Shortest Path Heuristic" -x "Generation" -y "Objective value" -s rsph.png rsph.data norsph.data
 }
 
+function plot_scenario7(){
+	echo ""
+}
+
 function show_help(){
 cat <<HELP
 Usage: ./plotAll.sh GALog.txt SPTLog.txt DAARPMSWIM.txt
@@ -292,9 +443,8 @@ then
 	show_help
 	exit 0
 fi
-#plot_lifetime $@
-#plot_connectivity
-plot_ns $@
-plot_ne $@
-plot_density $@
+plot_lifetime $@
+#plot_ns $@
+#plot_ne $@
+#plot_density $@
 #plot_rsph

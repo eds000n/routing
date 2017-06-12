@@ -8,10 +8,10 @@
 		<dimensions value="2" />
 
 		<!--Length of the deployment field along the x-axis.-->
-		<dimX value="350" />
+		<dimX value="700" />
 
 		<!--Length of the deployment field along the y-axis.-->
-		<dimY value="350" />
+		<dimY value="700" />
 
 		<!--Length of the deployment field along the z-axis.-->
 		<dimZ value="50" />
@@ -72,7 +72,7 @@
 		<useFixedSeed value="true" />
 
 		<!--The seed to be used by the random number generators if useFixedSeed is set to true.-->
-		<fixedSeed value="737" />
+		<fixedSeed value="4552" />
 
 		<!--***********************************************************************-->
 		<!--  Logging                                                              -->
@@ -246,7 +246,7 @@
 
 <Energy>
 	<EnergyModel value="sinalgo.models.EnergyModel.simple.SimpleEnergy" />
-	<MaxEnergy value="50"/>
+	<MaxEnergy value="5"/>
 	<!--MaxEnergy3 value="60"/-->
 	<!--MaxEnergy5 value="60"/-->
 	<!--MaxEnergy20 value="-1"/-->
@@ -263,18 +263,20 @@
 
 <!-- Std genetic algorithm params: population=2*n generations=100-->
 <Population value="2"/>
-<Generations value="100"/>
+<Generations value="50"/>
+<Preprocessing value="0"/>	<!-- 1: pre-processing, 0:NO pre-processing-->
 <Objective value="1"/> <!-- Defines the objective function: 1 for normal, 2 for node-weighted (battery), 3 for normalized node-weighted -->  
 <FFactor value="1.0"/> <!-- Obj function: sum_i f*w_i^k -->
 <KFactor value="1.0"/>
-<UpdateVariation value="0.05"/>
+<UpdateVariation value="0.1"/>	<!-- it also works as minimum battery threshold --> 
+<NodeDelay value="0.1"/>		<!-- node delay for transmitting a packet -->
 
 <SimTime value="25250"/>
-<Density value="20"/>
+<Density value="42"/>
 <Event>
 	<NumEvents value = "6" />
 	<Time value = "1000" />
-	<DataRate value = "1" />
+	<DataRate value = "5" />
 	<EventSize value = "50" />
 	<EventEnd value = "25100" />
 	<EventStart1 value = "2000" />
@@ -287,18 +289,18 @@
 	<EventStart8 value = "19" />
 	<EventStart9 value = "19" />
 	<EventStart10 value = "19" />
-	<Xposition1 value="169" />
-	<Yposition1 value="97" />
-	<Xposition2 value="120" />
-	<Yposition2 value="269" />
-	<Xposition3 value="105" />
-	<Yposition3 value="348" />
-	<Xposition4 value="361" />
-	<Yposition4 value="626" />
-	<Xposition5 value="612" />
-	<Yposition5 value="137" />
-	<Xposition6 value="615" />
-	<Yposition6 value="281" />
+	<Xposition1 value="132" />	<!--169-->
+	<Yposition1 value="398" />	<!--97-->
+	<Xposition2 value="157" />	<!--120-->
+	<Yposition2 value="597" />	<!--269-->
+	<Xposition3 value="520" />	<!--105-->
+	<Yposition3 value="188" />	<!--348-->
+	<Xposition4 value="103" />	<!--361-->
+	<Yposition4 value="272" />	<!--626-->
+	<Xposition5 value="412" />	<!--612-->
+	<Yposition5 value="211" />	<!--137-->
+	<Xposition6 value="544" />	<!-- 153 615 -->
+	<Yposition6 value="281" />	<!-- 629 281 -->
 	<Xposition7 value="200" />
 	<Yposition7 value="200" />
 	<Xposition8 value="120" />

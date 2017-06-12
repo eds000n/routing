@@ -1,8 +1,8 @@
 # Macros:
-#Compile me on kratos, others doesn't have the required libs
+#Compile me on kratos, others doesn't have the required libs, with LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LIBRARY_PATH make
 #CFLAGS= -O3 -fopenmp -lemon -std=c++11 
 #CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -std=c++0x
-CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -std=gnu++0x
+CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -I /usr/include/x86_64-linux-gnu -L /usr/lib/x86_64-linux-gnu -std=gnu++0x
 #CFLAGS= -O3 -fopenmp -lemon -I /home/edson/include -std=c++11
 #CFLAGS= -O3 -lemo n
 OBJECTS= Decoder.o sensores.o reductions.o heuristics.o SimplerDecoder.o

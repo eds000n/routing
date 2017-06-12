@@ -1,7 +1,7 @@
 #!/bin/bash
 #Start ALL the scenarios of simulation
 
-DATARATE=20
+DATARATE=5
 F_FACTOR=1
 K_FACTOR=1
 
@@ -10,28 +10,18 @@ K_FACTOR=1
 # $3: number of events
 # $4: number of nodes
 # $5: density
+# $6: init_time
 function exec_simulation()
 {
-	project=$1	#SPT, InFRA, DAARP, DDAARP, DST, GA
-	basecmd="java -Xmx8G -cp binaries/bin sinalgo.runtime.Main -project $project"
-	if [ $1 == "SPT" ]; then
-		nodeType="SPT:SPTNode"
-	elif [ $1 == "Infra" ]; then
-		nodeType="Infra:InfraNode"
-	elif [ $1 == "DAARPMSWIM" ]; then
-		nodeType="DAARPMSWIM:DAARPMSWIMNode"
-	elif [ $1 == "DDAARP" ]; then
-		nodeType="DDAARP:DDAARPNode"
-	elif [ $1 == "DST" ]; then
-		nodeType="DST:DSTNode"
-	elif [ $1 == "GA" ]; then
-		nodeType="GA:GANode"
-	fi
-
+	alg_list="$1"	#SPT, InFRA, DAARP, DDAARP, DST, GA
 	seed=$2
+	#echo "Alg list $alg_list"
+	#echo "Seed: $seed"
 	numEvents=$3
 	nodes=$4
 	density=$5
+	#preprocessing=$6
+	start_time=$6
 	PI=3.141592
 	rc=80
 	dim=`echo "sqrt($nodes*$PI*$rc*$rc/$density)" | bc`
@@ -57,37 +47,73 @@ function exec_simulation()
 	kfactor="1"
 	#dimensions=[248,350,495,700,990]
 	cmd_events_positions="-overwrite Event/NumEvents=$numEvents"
-	event_end_times=""
+	event_end_times="-overwrite SimTime=25250 -overwrite Event/EventEnd=25100"
+	init_time=1500
+	event_start_times=""
 	for ne in $events
 	do
 		x[$ne]=$((${xi[$ne]}%$dimx))
 		y[$ne]=$((${yi[$ne]}%$dimy))
 		cmd_events_positions="${cmd_events_positions} -overwrite Event/Xposition${ne}=${x[$ne]} -overwrite Event/Yposition${ne}=${y[$ne]}"
 		event_end_times="${event_end_times} -overwrite Event/EventEnd${ne}=25500"
+		if [ $start_time -eq 0 ]
+		then
+			init_time=$(($init_time+500))
+		else
+			init_time=$(($RANDOM%$start_time))
+			init_time=$(($init_time+2000))
+		fi
+		event_start_times="${event_start_times} -overwrite Event/EventStart${ne}=${init_time}"
 	done
 	#for ne in $events
 	#do
 	ne=$numEvents
+	dr=$DATARATE
 
-		dr=$DATARATE
-		if [ $1 == "GA" ]; then
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=1 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.1.out"
+	for project in $alg_list #SPT, InFRA, DAARP, DDAARP, DST, GA
+	do
+		basecmd="java -Xmx8G -cp binaries/bin sinalgo.runtime.Main -project $project"
+		if [ $project == "SPT" ]; then
+			nodeType="SPT:SPTNode"
+		elif [ $project == "Infra" ]; then
+			nodeType="Infra:InfraNode"
+		elif [ $project == "DAARPMSWIM" ]; then
+			nodeType="DAARPMSWIM:DAARPMSWIMNode"
+		elif [ $project == "DDAARP" ]; then
+			nodeType="DDAARP:DDAARPNode"
+		elif [ $project == "DST" ]; then
+			nodeType="DST:DSTNode"
+		elif [ $project == "GA" ]; then
+			nodeType="GA:GANode"
+		fi
+
+	
+		if [ $project == "GA" ]; then
+		preprocessing=0
+			ga_cmd="-overwrite Population=$population -overwrite Generations=$generations -overwrite Preprocessing=$preprocessing"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch ${ga_cmd} -overwrite Objective=1 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_start_times} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${dr}-${start_time}-${project}0.out"
 			echo $cmd >> .cmdfile
 			echo "./mvstp.sh" >>.cmdfile
 			echo "./mvdot.sh" >>.cmdfile
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=2 -overwrite FFactor=0.1 -overwrite KFactor=2 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times}  > ${n}-${ne}-${density}-${seed}-${project}-${dr}.2.out"
+		preprocessing=1
+			ga_cmd="-overwrite Population=$population -overwrite Generations=$generations -overwrite Preprocessing=$preprocessing"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch ${ga_cmd} -overwrite Objective=1 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_start_times} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${dr}-${start_time}-${project}1.out"
 			echo $cmd >> .cmdfile
 			echo "./mvstp.sh" >>.cmdfile
 			echo "./mvdot.sh" >>.cmdfile
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite Population=$population -overwrite Generations=$generations -overwrite Objective=3 -overwrite FFactor=0.5 -overwrite KFactor=1.5 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.3.out"
+			#cmd="$basecmd -gen $nodes ${nodeType} $model -batch ${ga_cmd} -overwrite Objective=2 -overwrite FFactor=0.1 -overwrite KFactor=2 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times}  > ${n}-${ne}-${density}-${seed}-${dr}-${project}2.out"
+			#echo $cmd >> .cmdfile
+			#echo "./mvstp.sh" >>.cmdfile
+			#echo "./mvdot.sh" >>.cmdfile
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch ${ga_cmd} -overwrite Objective=3 -overwrite FFactor=0.5 -overwrite KFactor=1.5 -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_start_times} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${dr}-${start_time}-${project}3.out"
 			echo $cmd >> .cmdfile
 			echo "./mvstp.sh" >>.cmdfile
 			echo "./mvdot.sh" >>.cmdfile
 		else
-			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${project}-${dr}.out"
+			cmd="$basecmd -gen $nodes ${nodeType} $model -batch -overwrite fixedSeed=$seed -overwrite Density=$density -overwrite Event/DataRate=$dr ${cmd_dimensions} ${cmd_events_positions} ${event_start_times} ${event_end_times} > ${n}-${ne}-${density}-${seed}-${dr}-${start_time}-${project}.out"
 			echo $cmd >> .cmdfile
 		fi
-	#done
+	done
 }
 
 # Scenario1: fixing number of events and density; varying the number of nodes 
@@ -95,11 +121,12 @@ function exec_simulation()
 function scenario1(){
 	echo "#scenario1: varying nodes $1 $2" >> .cmdfile
 	ne=6
-	density=42
+	density=40
 	nodes="128 256 512 1024 2048"
 	for n in $nodes 
 	do
-		exec_simulation $1 $2 $ne $n $density
+		exec_simulation "$1" $2 $ne $n $density 0
+		#exec_simulation "$1" $2 $ne $n $density 0
 	done
 }
 
@@ -112,7 +139,7 @@ function scenario2(){
 	events="1 2 3 4 5" #6 is already included in scenario1
 	for ne in $events
 	do
-		exec_simulation $1 $2 $ne $n $density
+		exec_simulation "$1" $2 $ne $n $density 0
 	done
 }
 
@@ -120,12 +147,12 @@ function scenario2(){
 # density={20,30,42} , ne=6, nodes=1024
 function scenario3(){
 	echo "#scenario3: vaying density $1 $2" >> .cmdfile
-	density="20 30" #42 is already included in scenario1
+	density="10 20 30" #42 is already included in scenario1
 	n=1024
 	ne=6
 	for d in $density
 	do
-		exec_simulation $1 $2 $ne $n $d
+		exec_simulation "$1" $2 $ne $n $d 0
 	done
 }
 
@@ -149,22 +176,92 @@ function scenario6(){
 	density=42
 	nodes=1024
 	ne=6
-	exec_simulation $1 $2 $ne $nodes $density
+	exec_simulation "$1" $2 $ne $nodes $density 0
+}
+
+# Scenario7: impact of RSPH (with and without it)
+# ONLY FOR GA
+# density=42, ne=6, nodes={128,256,512,1024,2048}
+function scenario7(){
+	if [ "$1" == "GA" ]
+	then
+		echo "#scenario7: impact of RSPH $1 $2" >> .cmdfile
+		density=42		#the denser the more challenguing for RSPH
+		ne=6
+		#nodes="128 256 512 1024 2048"
+		nodes="1024"
+		for n in $nodes 
+		do
+			exec_simulation "$1" $2 $ne $n $density 0
+			#exec_simulation "$1" $2 $ne $n $density 0
+		done
+	fi
+}
+
+# Scenario8: impact of reductions (with and without them)
+# ONLY FOR GA
+# density={20,30,42}, ne=6, nodes=1024
+function scenario8(){
+	echo "#scenario8: impact of RSPH $1 $2" >> .cmdfile
+
+}
+
+# Scenario9: impact of init time of events for many densities
+# density={10, 20, 30, 40} ne=6, nodes=1024, init_times={1h, 2h, 3h, 4h, 5h}
+function scenario9(){
+	echo "#scenario9: random event init times $1 $2" >> .cmdfile
+	ne="6"
+	n="4096"
+	density="10 20 30 40"
+	for den in $density
+	do
+		#hours       1h   2h   3h    4h    5h"
+		init_times="3600 7200 10800 14400 18000"
+		for t in $init_times
+		do
+			exec_simulation "$1" $2 $ne $n $den $t
+		done
+	done
+}
+
+function scenarios(){
+	a="$1"
+	seed=$2
+	#scenario1 "$a" $seed 	#THIS ONE
+	#scenario2 "$a" $seed
+	#scenario3 "$a" $seed	# AND THIS
+	#scenario4 "$a" $seed
+	#scenario5 "$a" $seed
+	#scenario6 "$a" $seed
+	#scenario7 "$a" $seed
+	scenario9 "$a" $seed	#AND THIS
 }
 
 function show_help()
 {
 cat <<"HELP"
-Use: ./simulation.sh -r <number_of_rounds> [-s] [-i] [-d] [-D] [-S] [-g]
+Use: ./simulation.sh -r <number_of_rounds> [-s] [-i] [-d] [-D] [-S] [-g] [-t <seeds_file>]
 	-s	for SPT
 	-i	for Infra
 	-d	for DAARP
 	-D	for DDAARP
 	-S	for DST
 	-g	for GA
+	-t	for a list of seeds instead of random seeds. The file has one seed per line. When this option
+		is activated, it overrides the number_of_rounds to the number of seed given in the file
 
 The script creates a file named .cmdfile with the commands to run the simulation. If the file
 exists, it is overwritten.
+
+ Scenario1: fixing number of events and density; varying the number of nodes 
+ Scenario2: fixing number of nodes and density; variying number of events
+ Scenario3: fixing events nodes; varying density
+ Scenario4: fixing sink position (NOT IMPLEMENTED YET)
+ Scenario5: long duration of events (NOT IMPLEMENTED YET)
+ Scenario6: standard scenario (for eventing ending perhaps)
+ Scenario7: impact of RSPH (with and without it), ONLY FOR GA
+ Scenario8: impact of reductions (with and without them), ONLY FOR GA
+ Scenario9: impact of init time of events for many densities
 
 TODO: The script will dinamically allocate one process in each host. The list of hosts is defined
 in the hosts.lst file. Please verify that the hosts have the required libraries and the 
@@ -179,9 +276,10 @@ ddaarp=0;
 dst=0;
 ga=0;
 rounds=30;
+seeds_file="";
 nevents=6;
 listevent=0;
-while getopts "r:e:EsidDSgc:h" opt;
+while getopts "r:e:EsidDSgc:ht:" opt;
 do
 	case $opt in
 		s)
@@ -211,6 +309,10 @@ do
 		r)
 			rounds=$OPTARG;
 			echo "number of rounds: $rounds"
+			;;
+		t)
+			seeds_file=$OPTARG;
+			echo "using seed file: $seeds_file"
 			;;
 		e)
 			nevents=$OPTARG;
@@ -271,17 +373,33 @@ then
 	alg="${alg} GA"
 fi
 
-for i in `seq 1 $rounds`
-do
-	seed=$RANDOM
-	for a in $alg
+if [ "$seeds_file" == "" ]; then
+	for i in `seq 1 $rounds`
 	do
-		scenario1 $a $seed
-		scenario2 $a $seed
-		scenario3 $a $seed
-		#scenario4 $a $seed
-		#scenario5 $a $seed
-		#scenario6 $a $seed
+		seed=$RANDOM
+		scenarios "$alg" $seed
+		#for a in $alg
+		#do
+		#	scenarios $a $seed
+		#done
 	done
-done
+
+else
+
+	if [ ! -e $seeds_file ] 
+	then
+		echo "$seeds_file does not exist"
+		exit 1
+	fi
+	while read -r line 
+	do
+		seed=$line
+		scenarios "$alg" $seed
+		#for a in $alg
+		#do
+		#	scenarios $a $seed
+		#done
+	done < $seeds_file
+fi
+
 

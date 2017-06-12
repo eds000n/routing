@@ -178,12 +178,26 @@ public class CustomGlobal extends AbstractCustomGlobal{
 		//double Rate =  (double) 60 / SPTNode.DataRate;
 
 		String algname;
-		if (GANode.objFunction==1)
-			algname = "GA1";
+		if (GANode.objFunction==1){
+			if ( GANode.preprocessing == 0 )
+				algname = "CER";
+			else// if ( GANode.preprocessing == 0 )
+				algname = "ICER";
+		}
 		else if (GANode.objFunction == 2)
-			algname = "GA2(" + GANode.fFactor + "," + GANode.kFactor + ")";
+			algname = "B-ICER";//"GA2(" + GANode.fFactor + "," + GANode.kFactor + ")";
 		else //if (GANode.objFunction == 3 )
-			algname = "GA3(" + GANode.fFactor + "," + GANode.kFactor + ")";
+			algname = "BA-ICER";//"GA3(" + GANode.fFactor + "," + GANode.kFactor + ")";
+		int upnodes = 0, connectednodes = 0;
+		int disconnectedterminals = 0;
+		for ( int i : GANode.UpNodes )
+			upnodes += i;
+		for ( int i=0; i<GANode.DisconnectedNodes.size(); i++ ){
+			connectednodes += GANode.DisconnectedNodes.get(i);
+			if ( GANode.DisconnectedNodes.get(i) == 0 && GANode.terminals.contains(i) )
+				disconnectedterminals++;
+		}
+			
 		if(GANode.Edges>1){
 			List<String> listtree = new ArrayList<String>(); 
 			this.treeOptimized.getTreeOptimized(listtree);
@@ -210,8 +224,12 @@ public class CustomGlobal extends AbstractCustomGlobal{
 //				+ "listTree size " + this.listTree.size() + "\t"
 				//+ "numTrees " 
 				+ GAConcurrentOptimizedTree.getNumTress() + "\t"//CustomGlobal.numTrees + "\t"
+				+ upnodes + "\t"			//Number of up nodes (alive)
+				+ connectednodes + "\t"			//Number of connected nodes (might be alive or dead)
+				+ disconnectedterminals + "\t"			//Number of disconnected terminals (might be alive or dead) 
 				+ GANode.populations*Tools.getNodeList().size() + "\t"
 				+ GANode.generations + "\t"
+				+ GANode.preprocessing + "\t"
 				+ Distribution.getSeed()
 			);
 			

@@ -31,8 +31,8 @@ public class ExecuteAG implements Runnable{
 //	GANode n;
 	private static Process pr = null;				//ONLY process running the algorithm 
 	private Runtime rt = null;
-	private boolean executing = true;
-	
+	private boolean canExecute = true;
+	private boolean executing = false;
 	public ExecuteAG(){
 //		this.n = n;
 		
@@ -45,14 +45,15 @@ public class ExecuteAG implements Runnable{
 			int p = sinalgo.configuration.Configuration.getIntegerParameter( "Population" )*Tools.getNodeList().size();
 	        int g = sinalgo.configuration.Configuration.getIntegerParameter( "Generations" );
 	        String GAexec = "srcAG/sensores";
-	        String GAargs ;//= " " + p + " " + g +" 1 srcAG/log.dat 1 1";
-	        if ( GANode.objFunction==1 ){
-	        	GAargs = " " + p + " " + g +" 1 srcAG/log" + GANode.numSPTFiles + ".dat";
+	        String GAargs ;
+	        GAargs = " " + p + " " + g +" 1 srcAG/log.dat";
+	        /*if ( GANode.objFunction==1 ){
+	        	GAargs = " " + p + " " + g +" 1 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.preprocessing;
 	        }else if ( GANode.objFunction==2 ){
-	        	GAargs = " " + p + " " + g +" 2 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.fFactor + " " + GANode.kFactor;
+	        	GAargs = " " + p + " " + g +" 2 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.preprocessing + " " + GANode.fFactor + " " + GANode.kFactor;
 	        }else{
-	        	GAargs = " " + p + " " + g +" 3 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.fFactor + " " + GANode.kFactor;
-	        }
+	        	GAargs = " " + p + " " + g +" 3 srcAG/log" + GANode.numSPTFiles + ".dat " + GANode.preprocessing + " " + GANode.fFactor + " " + GANode.kFactor;
+	        }*/
 	        File f = new File(GAexec);
 	        if (!f.exists() || !f.canExecute()){
 	        	Tools.stopSimulation();
@@ -80,7 +81,7 @@ public class ExecuteAG implements Runnable{
 		}*/
 		List<String> listtree = new ArrayList<String>();
 		CustomGlobal.treeOptimized.getTreeOptimized(listtree);
-		GANode.debugMsg("DEBUG treeSize: " + listtree.size() + " objVal: " + obj + " generation: " + this.nGenerations + " terminals: (0-index) " + GANode.terminals + " edges:"  );
+		GANode.debugMsg("DEBUG " + GANode.numSPTFiles + "(not reliable at all) treeSize: " + listtree.size() + " objVal: " + obj + " generation: " + this.nGenerations + " terminals: (0-index) " + GANode.terminals + " edges:"  );
 		for(String s: listtree){
 			String[] uv = s.split(" ");
 			edges.add( new GAEdge( Integer.parseInt(uv[0]), Integer.parseInt(uv[1]) ) );
@@ -110,7 +111,7 @@ public class ExecuteAG implements Runnable{
 			SetRouteMessage setRouteMessage = new SetRouteMessage(1, 0, numTrees);
 			setRouteMessage.addTree(t);
 			SetRouteTimer timer = new SetRouteTimer(Tools.getNodeByID(1), setRouteMessage);
-			timer.startRelative(0.0001+numTrees/10.0, Tools.getNodeByID(1));
+			timer.startRelative(0.001+numTrees/10.0, Tools.getNodeByID(1));
 			((GANode)Tools.getNodeByID(1)).getBattery().spend(EnergyMode.SEND);
 			GANode.debugMsg("SetRouteTimer time: " + timer.getFireTime(), 2);
 		}
@@ -186,9 +187,9 @@ public class ExecuteAG implements Runnable{
 	@Override
 	public void run() {
 		while (true){
-			if ( isExecuting() ){
+			if ( canExecute() ){
 				try {
-
+					setExecuting(true);
 					//            Process pr = rt.exec("srcAG/sensores 10*n 1000 srcAG/log.dat");
 					pr = rt.exec(getCmd());
 					GANode.debugMsg("Thread " + Thread.currentThread().getId() + " executing genetic algorithm by: " + getCmd());
@@ -319,17 +320,26 @@ public class ExecuteAG implements Runnable{
 					System.out.println(e.toString());
 					e.printStackTrace();
 				}
-				setExecuting(true);
+				setExecuting(false);
+				setCanExecute(false);
 			}
 		}
+	}
+
+	public synchronized boolean canExecute() {
+		return canExecute;
+	}
+
+	public synchronized void setCanExecute(boolean canExecute) {
+		this.canExecute = canExecute;
 	}
 
 	public synchronized boolean isExecuting() {
 		return executing;
 	}
 
-	public synchronized void setExecuting(boolean execute) {
-		this.executing = execute;
+	public synchronized void setExecuting(boolean executing) {
+		this.executing = executing;
 	}
 
 }

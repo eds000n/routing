@@ -9,12 +9,19 @@ stp*
 *.dot
 *.stp
 *.out
+*.eps
 
 # c++ files
 srcAG/*.o
 srcAG/sensores
+srcAG/*.eps
+srcAG/*.dat
 
 
 # vim tmp files
 *~
 srcAG/*~
+
+#plotting data
+plots/*.data
+plots/*.png

@@ -18,7 +18,6 @@ public class RequestRouteMessage extends Message{
 	private int RequesterID;			// 1-indexed
 	private ArrayList<Integer> path;	//Shortest path to sink, just used the first time when there is no solution, then it is used  
 										//the shortest path to the tree which is computed by the sink.
-	
 	public ArrayList<Integer> getPath() {
 		return path;
 	}
@@ -58,5 +57,5 @@ public class RequestRouteMessage extends Message{
 	public void setRequesterID(int requesterID) {
 		RequesterID = requesterID;
 	}
-
+	
 }

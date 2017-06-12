@@ -2,22 +2,31 @@ package projects.SPT.nodes.nodeImplementations;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
+import projects.SPT.nodes.messages.DeadNodeMessage;
 import projects.SPT.nodes.messages.MCIMessage;
 import projects.SPT.nodes.messages.MSGTREE;
 import projects.SPT.nodes.messages.SPTDataMessage;
+import projects.SPT.nodes.messages.SetRepairRouteMessage;
+import projects.SPT.nodes.timers.CreateAdjListTimer;
 import projects.SPT.nodes.timers.EndSPTTimer;
 import projects.SPT.nodes.timers.EventEndSPTTimer;
 import projects.SPT.nodes.timers.EventSPTTimer;
 import projects.SPT.nodes.timers.GraphConnectivityTimer;
 import projects.SPT.nodes.timers.MessageSPTTimer;
+import projects.SPT.nodes.timers.RepairDeadNodeTimer;
 import projects.SPT.nodes.timers.SPTTimer;
 import sinalgo.configuration.Configuration;
 import sinalgo.configuration.CorruptConfigurationEntryException;
 import sinalgo.configuration.WrongConfigurationException;
 import sinalgo.gui.transformation.PositionTransformation;
-import sinalgo.nodes.Connections;
 import sinalgo.nodes.Node;
+import sinalgo.nodes.TimerCollection;
 import sinalgo.nodes.messages.Inbox;
 import sinalgo.nodes.messages.Message;
 import sinalgo.nodes.messages.NackBox;
@@ -61,14 +70,15 @@ public class SPTNode extends Node {
 	public static int Detects =0;
 	public static int Overheads =0;			//Quantity of packets used for configuring the network, ie, setting the distance in hops to the sink and the nexthopsink for each node
 	public static int DataPackets =0;		//Quantity of data packets (just SPTDataMessage) sent through the network
-	public static int Edges =0;				//Quantity of edges in the shortest path tree. It is setup at the end of the simulation so that all the events are gathered.
+	public static int Edges =0;				//Quantity of edges in the shortest path tree. It is set at the end of the simulation so that all the events are gathered.
 	public static int DataRate =0;
 	public static int Density =0;
 
 	public static int Notifications =0;
 	public static double SimulationTime =0;
 	public static Logging Energy = Logging.getLogger("SPTEnergy.txt", true);
-	private IEnergy battery;
+	//private IEnergy battery;
+	private SimpleEnergy battery;
 
 
 	private UniformDistribution uniformRandom =  new UniformDistribution(0,0.016);
@@ -116,6 +126,16 @@ public class SPTNode extends Node {
 	private static int perdidosAGG =0;
 	private static int packetrecvagg = 0;
 
+	/***********************************************************/
+	private boolean isDead = false ;
+	private LinkedList<Integer> listAll = new LinkedList<Integer>();	//A list containing the IDs of ALL the neighbor nodes, 1-indexed
+	public static ArrayList<Integer> UpNodes = new ArrayList<>(); 	//1: node awaken, 0: dead node 0-indexed
+	public static ArrayList<Integer> DisconnectedNodes = new ArrayList<>(); 	//1: node connected, 0: disconnected 0-indexed
+	public static List<Integer>[] AdjList; 		// Adjacency list 0-indexed
+	private boolean runUpdateAdjacencyMatrix = false;
+	public static ArrayList<Integer> terminals = new ArrayList<Integer>();		//List of terminal nodes, 0-indexed
+	public static Logging debugLog = Logging.getLogger();	//Prints to the console
+	/***********************************************************/
 	// Position File: /home/edson/workspace/SinalgoALL/src/projects/SPT/PosFile1.pos
 	@Override
 	public void handleMessages(Inbox inbox) {
@@ -132,9 +152,20 @@ public class SPTNode extends Node {
 			this.battery.spend(EnergyMode.RECEIVE);
 
 
+			if (msg instanceof DeadNodeMessage){		//Message sent from the dead node to the sink
+				ReportDeadNode(msg);
+			}
+			if (msg instanceof SetRepairRouteMessage){	//Message to set repair (fix) the route of the nodes that became orphan
+				SetRepairRoute(msg);
+			}
+			
 			//Sink start the flooding of message MCI for configuration initial
 			if(msg instanceof MCIMessage) {
 				MCIMessage mcimsg = (MCIMessage) msg;
+				if ( !listAll.contains( mcimsg.getSenderID() ) ) {
+					listAll.add( mcimsg.getSenderID() );
+				}
+				
 				if(this.HopToSink > mcimsg.getHopToSink()){
 					this.setColor(Color.GREEN);
 					this.NextHopSink = mcimsg.getSenderID();
@@ -160,7 +191,6 @@ public class SPTNode extends Node {
 					}
 				}
 			}
-
 
 			if (msg instanceof MSGTREE){
 				//Tools.appendToOutput("MSGTREE: from" + this.ID + " to " + this.NextHopSink + ", distance (in hops):" + this.HopToSink + "\n");
@@ -402,8 +432,16 @@ public class SPTNode extends Node {
 			this.myRole = Roles.SINK;
 			this.mystatus = Status.READY;
 			sendMCI();
+			UpNodes.add(1);
+			DisconnectedNodes.add(1);
+			CreateAdjListTimer calt = new CreateAdjListTimer(this); 
+			calt.startAbsolute(2000, this);
+		}else{
+			UpNodes.add(1);
+			DisconnectedNodes.add(1);
 		}
 
+		
 		//Event timers
 		EndSPTTimer etimer = new EndSPTTimer();
 		etimer.startAbsolute(SimulationTime, this);
@@ -603,7 +641,7 @@ public class SPTNode extends Node {
 		float min = this.battery.getEnergy();
 		int node = this.ID;
 		for (Node n : Tools.getNodeList()){
-			if (min>((SPTNode)n).getBateria().getEnergy() && this.ID!=1){
+			if (min>((SPTNode)n).getBateria().getEnergy() && this.ID!=1 && !SPTNode.terminals.contains(n.ID-1) && SPTNode.UpNodes.get(n.ID-1)==1){
 				min = ((SPTNode)n).getBateria().getEnergy();
 				node = n.ID;
 			}
@@ -631,5 +669,378 @@ public class SPTNode extends Node {
 		}
 		return true;
 	}
+	
+	/*********************************************************
+	 *********************************************************/
+	 
+	@NodePopupMethod(menuText="DeadDisconnectedNodes")
+	public void listDeadAndDisconnected(){
+		Tools.appendToOutput("Dead nodes: ");
+		for(int i=0; i<SPTNode.UpNodes.size(); i++)
+			if ( SPTNode.UpNodes.get(i) == 0 )	//Dead Node!
+				Tools.appendToOutput((i+1) + " ");
+		Tools.appendToOutput("\n");
+		Tools.appendToOutput("Disconnected nodes: ");
+		for(int i=0; i<SPTNode.DisconnectedNodes.size(); i++)
+			if ( SPTNode.DisconnectedNodes.get(i) == 0) //Disconnected node!
+				Tools.appendToOutput((i+1) + " ");
+		Tools.appendToOutput("\n");
+		Tools.appendToOutput("Terminals: ");
+		for(int i=0; i<SPTNode.terminals.size(); i++)
+			Tools.appendToOutput((SPTNode.terminals.get(i)+1) + " ");
+		Tools.appendToOutput("\n");
+	}
 
+	public boolean isDead() {
+		return isDead;
+	}
+
+	public void setDead(boolean isDead) {
+		this.isDead = isDead;
+	}
+
+	public void broadcastDeadNodeRepairMessage(int iD) {
+		// TODO Auto-generated method stub
+		this.battery.spend(EnergyMode.SEND);
+		
+		//Overheads += 1;
+		//RepairDeadNodeMessage rdnm = new RepairDeadNodeMessage(this.ID);
+		//this.broadcast(rdnm);
+//		debugMsg("Broadcasted RepairDeadNodeMessage for " + this.ID , 2);
+		
+		ArrayList<Integer> neighbors = new ArrayList<>();
+		for ( int i=0; i<this.listAll.size(); i++ ){
+			//Overheads += 1;
+			SPTNode neighbor_node = (SPTNode)Tools.getNodeByID(this.listAll.get(i)); 
+			neighbor_node.battery.spend(EnergyMode.RECEIVE);
+	
+			if ( neighbor_node.listAll.contains(this.ID) ){
+				neighbor_node.listAll.removeFirstOccurrence(this.ID);
+				//neighbor_node.listAll.remove(this.ID);
+			}
+				
+			if ( neighbor_node.NextHopSink == this.ID ){
+				neighbor_node.battery.spend(EnergyMode.SEND);
+				//MessageSPTTimer routeTimer = new MessageSPTTimer(rrm, Tools.getNodeByID( this.NextHopSink ));
+				//routeTimer.startRelative(0.001, this);
+				//Overheads += 1;
+				neighbors.add(this.listAll.get(i));
+			}
+		}
+		DeadNodeMessage dnm = new DeadNodeMessage(iD, this.battery.getEnergy());
+		dnm.setNeighbors(neighbors);
+		this.send(dnm, Tools.getNodeByID(this.NextHopSink));
+//		debugMsg("Generated DeadNodeMessage for " + dnm.getNodeID() + ", started its tranmission to the sink" , 2);
+	}
+	
+	private void ReportDeadNode(Message msg) {
+		DeadNodeMessage dnm = (DeadNodeMessage)msg;
+		battery.spend(EnergyMode.LISTEN);
+		if (this.ID==1) {//Sink
+			debugMsg(">>> SINK recieved ReportDeadMessage from node " + dnm.getNodeID() + " reported itself as dead with battery of " + dnm.getReportedEnergy());
+			//debugMsg(">>> GANode.UpNodes " + GANode.UpNodes.get(dnm.getNodeID() - 1));
+			SPTNode.UpNodes.set(dnm.getNodeID() - 1, 0);
+			SPTNode.DisconnectedNodes.set(dnm.getNodeID()-1, 0);
+			
+			updateConnectedComponents(dnm.getNeighbors());		//Updates the connected components and fixes, if possible, the neighbors of the dead node so they don't lose connectivity.
+			
+			//debugMsg(">>> GANode.UpNodes " + GANode.UpNodes.get(dnm.getNodeID() - 1));
+			int dn = 0;
+			for ( Integer i : DisconnectedNodes )
+				dn += i;
+			debugMsg(">>> SINK number of connected nodes " + dn);
+			
+		}else{
+			send(dnm, Tools.getNodeByID(this.NextHopSink));
+			battery.spend(EnergyMode.SEND);
+//			Overheads+=1;
+//			debugMsg("node " + this.ID + " retransmitting DeadNodeMessage for node " + dnm.getNodeID() + " list of reconfiguring nodes " + dnm.getNeighbors());
+		}
+	}
+	
+	public void updateConnectedComponents(ArrayList<Integer> nodes){
+		ArrayList<Boolean> visited = new ArrayList<Boolean>(Collections.nCopies(AdjList.length, false));
+		bfs(0, visited);
+		for(int i=0; i< nodes.size(); i++)//Verify if the node can be reached
+			if ( visited.get(nodes.get(i)-1) == true ){//can be reached,
+				ArrayList<Integer> parent = new ArrayList<>(Collections.nCopies(AdjList.length, 0));
+				bfs(0, nodes.get(i)-1, parent);
+				ArrayList<Integer> path = new ArrayList<>();
+				
+				int tmp = parent.get(nodes.get(i)-1);
+				//String msg = "route: "+u+" ";
+				while (tmp != -1){
+//					System.out.print(parent.get(tmp)+" ");
+					//msg += parent.get(tmp)+" ";
+					path.add(tmp+1);
+					tmp = parent.get(tmp);
+				}
+				
+				Collections.reverse(path);
+				path.remove(0);
+				int destiny = path.get(0);
+				path.remove(0);
+				path.add(nodes.get(i));
+				SetRepairRouteMessage srrm = new SetRepairRouteMessage(this.ID);
+				srrm.setPath(path);
+				RepairDeadNodeTimer rdnt = new RepairDeadNodeTimer(Tools.getNodeByID(1), srrm, Tools.getNodeByID(destiny));
+				rdnt.startRelative(0.0001, Tools.getNodeByID(1));
+//				RepairDeadNodeGATimer rtimer = new RepairDeadNodeGATimer(this);
+			}
+		for ( int i=0; i<SPTNode.DisconnectedNodes.size(); i++ ){
+			if (SPTNode.DisconnectedNodes.get(i)==1 && !visited.get(i))
+				bfsMarkDisconnected(i);
+		}
+		
+		checkTerminalConnectivity();
+	}
+	
+	private void checkTerminalConnectivity() {
+		int n = 0;
+		for(int i=0; i<SPTNode.terminals.size(); i++){
+			if ( SPTNode.DisconnectedNodes.get(SPTNode.terminals.get(i)) == 0 ){
+				//SPTNode ntmp = (SPTNode)Tools.getNodeByID(SPTNode.terminals.get(i)+1);
+				eraseTimers(SPTNode.terminals.get(i)+1);
+				n++;
+			}
+		}
+		//if ( n == SPTNode.terminals.size() )//All the terminals are disconnectd, finish the simulation
+		//	sinalgo.tools.Tools.exit();
+	}
+	
+	/**
+	 * Erases timers of the node
+	 * @param nodeID id of the node to erase its timers. 1-indexed
+	 */
+	public void eraseTimers(int nodeID){
+		Tools.getEventQueue().removeAllEventsForThisNode(Tools.getNodeByID(nodeID));
+		/*Node n = Tools.getNodeByID(nodeID);
+		TimerCollection timerCollection = n.getTimers();
+		Iterator<sinalgo.nodes.timers.Timer> it = timerCollection.iterator();
+		if ( timerCollection.size() > 0 )
+			while ( it.hasNext() ){
+				it.remove();
+			}*/
+	}
+	
+	/**
+	 * Standard bfs for getting the shortest path between u and v in an unweighted graph.
+	 * Method used for getting the shortest path between a node a the existing routing tree 
+	 * @param v1 source node 0-indexed
+	 * @param v2 destiny node 0-indexed
+	 * @param parent array
+	 */
+	public int bfs(int v1, int v2, ArrayList<Integer> parent){ //This method works everything 0-indexed
+		ArrayList<Integer> visited = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
+		ArrayList<Integer> distance = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
+		visited.set(v1, 1);
+		parent.set(v1, -1);
+		Queue q = new LinkedList<Integer>();
+		q.add(v1);
+		boolean found = false;
+		//System.out.println("u: " + u);
+		//int c=0;
+		while (!q.isEmpty()){
+			int u = (int) q.poll();
+			//System.out.print("r"+c+" "+u+": ");
+			for(int i=0; i<AdjList[u].size(); i++){
+				
+				int v = AdjList[u].get(i);
+				if (SPTNode.UpNodes.get(v)==0)
+					continue;
+				if (visited.get(v)==0){//not yet visited
+					parent.set(v, u);
+					if (distance.get(v)==1){
+						System.out.println();
+					}
+					int d = distance.get(u);
+					distance.set(v, d+1);
+					//System.out.print(distance.get(v)+ " (" + v + ") ");
+					visited.set(v, 1);//Mark as visited
+					if (v==v2){
+						found = true;
+						break;
+					}
+					q.add(v);
+				}
+			}
+			//c++;
+			//System.out.println();
+			if (found)
+				break;
+		}
+		if (!found && SPTNode.UpNodes.get(v2)==1){//If it was not found and is up (has energy) then mark it as disconnected
+			bfsMarkDisconnected(v1);
+			return -1;
+		}
+		System.out.println("BFS from "+ v1 + " to " + v2 + " distance: " + distance.get(v2));
+		return distance.get(v2);
+	}
+	
+	/**
+	 * @param v1 node where to start the bfs. 0-indexed
+	 * @param visited
+	 */
+	public void bfs(int v1, ArrayList<Boolean> visited){
+		Queue q = new LinkedList<Integer>();
+		q.add(v1);
+		visited.set(v1, true);
+		while ( !q.isEmpty() ){
+			int u = (int) q.poll();
+			for(int i=0; i<AdjList[u].size(); i++){
+				int v = AdjList[u].get(i);
+				if (SPTNode.DisconnectedNodes.get(v)==0)
+					continue;
+				if ( !visited.get(v) ) {
+					visited.set(v, true);
+					q.add(v);
+				}
+			}
+		}
+	}
+	/**
+	 * Makes a BFS to set nodes as disconnected from the terminal.
+	 * @param v1 disconnected node 0-indexed
+	 */
+	void bfsMarkDisconnected(int v1){
+//		debugMsg(v1 + " disconnected, marking the nodes that reach it as disconnected");
+//		Exporter exp = new Exporter();
+//		new Exporter(this).export(new Rectangle(0, 0, graphPanel.getWidth(), graphPanel.getHeight()), getTransformator());
+		ArrayList<Integer> visited = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
+		visited.set(v1, 1);
+		Queue<Integer> q = new LinkedList<Integer>();
+		q.add(v1);
+		while (!q.isEmpty()){
+			int u = (int) q.poll();
+			System.out.print(u+": ");
+			for(int i=0; i<AdjList[u].size(); i++){
+				int v = AdjList[u].get(i);
+				System.out.print(v+", ");
+				if (SPTNode.DisconnectedNodes.get(v)==0)
+					continue;
+				if (visited.get(v)==0){//not yet visited
+					visited.set(v, 1);//Mark as visited
+					q.add(v);
+					SPTNode.DisconnectedNodes.set(v, 0);
+					//if ( GANode.terminals.contains(v) )
+					//	GANode.ter .set(v, 0);
+					/*if ( GANode.terminals.contains(v) ){
+						for ( sinalgo.nodes.timers.Timer t : Tools.getNodeByID(v+1).getTimers() ){
+							t.
+						}
+					}*/
+						
+				}
+			}
+			System.out.println();
+		}
+	}
+
+	public void createAdjacencyMatrix() {
+		int n = Tools.getNodeList().size();
+		//if (AdjMatrix == null)
+		//	AdjMatrix = new int[n][n];
+		
+		if (AdjList == null){
+			AdjList = (List<Integer>[])new List[n];
+	        for (int i = 0; i < n; i++) 
+	        	AdjList[i] = new ArrayList<Integer>();
+		}
+		
+//		for(int i=0; i<msg.node1.size(); i++){ //Iterate over the information carried by the BorderMessage
+//			Integer u = msg.node1.get(i)-1;	//the -1 is because the sink has ID=1
+//			Integer v = msg.node2.get(i)-1;
+		
+		
+		/*for(int i=0; i<msg.getNode1().size(); i++){ //Iterate over the information carried by the BorderMessage
+			Integer u = msg.getNode1().get(i)-1;	//the -1 is because the sink has ID=1
+			Integer v = msg.getNode2().get(i)-1;
+			//AdjMatrix[u][v] = 1;
+			//AdjMatrix[v][u] = 1;
+			if (!AdjList[u].contains(v))
+				AdjList[u].add(v);
+			if (!AdjList[v].contains(u))
+				AdjList[v].add(u);
+			//AdjList[v].add(u);
+		}*/
+		
+		float deg = 0;
+		if ( !this.runUpdateAdjacencyMatrix ){
+			for(int i=0; i<n; i++){
+				SPTNode u = (SPTNode) Tools.getNodeByID(i+1);
+				for(Integer v : u.listAll){
+					AdjList[i].add(v-1);
+				}
+				deg += u.listAll.size();
+			}
+			this.runUpdateAdjacencyMatrix = true;
+		}
+		
+//		debugMsg("Updated adjacency matrix");
+//		debugMsg("Average degree: " + deg/n);
+		Tools.appendToOutput("Updated adjacency matrix!\n");
+		for(int i=0; i<n; i++){
+			System.out.print(i+": ");
+			for(int j=0; j<AdjList[i].size(); j++)
+				System.out.print(AdjList[i].get(j)+" ");
+			System.out.println();
+		}
+	}
+
+	/**
+	 * Method to process the SetRepairRouteMessage. This message is generated in the sink and 
+	 * retransmited trough the path until reaching the last node.
+	 * @param msg
+	 */
+	private void SetRepairRoute(Message msg) {
+		SetRepairRouteMessage srrm = (SetRepairRouteMessage)msg;
+//		debugMsg("))SetRepairRouteMessage rcvd by " + this.ID + " path " + srrm.getPath());
+//		debugMsg(")))" + this.NextHopSink + " " + srrm.getNextHop() + ", " + srrm.getHopsToSink());
+		this.NextHopSink = srrm.getNextHop();
+		this.HopToSink = srrm.getHopsToSink();
+//		if ( this.ID == ((GANode)Tools.getNodeByID(this.NextHopSink)).NextHopSink )
+//			debugMsg("wdf!");
+		if (srrm.getPath().size() > 0){
+//			if ( this.NextHopSink == this.ID ){
+//				debugMsg("wdf!");
+//			}
+			srrm.setNextHop(this.ID);
+			srrm.setHopsToSink(srrm.getHopsToSink()+1);
+			//send(srrm, Tools.getNodeByID(srrm.top()));
+			int destiny = srrm.top();
+			RepairDeadNodeTimer rdnt = new RepairDeadNodeTimer(Tools.getNodeByID(this.ID), srrm, Tools.getNodeByID(destiny));
+			rdnt.startRelative(0.0001, Tools.getNodeByID(this.ID));
+			
+		}
+	}
+	
+	public static void debugMsg(String msg){
+		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+		if ( stackTraceElements.length >=2 ){
+			StackTraceElement ste = stackTraceElements[2];
+			debugLog.log("[ " + String.format("%06.6f", Global.currentTime) + " ] " + ste.getMethodName() + ": " + msg + "\n");
+		}
+		else
+			debugLog.log("[ ERROR LOGGING ] ############################## the stacktrace is too small ############################## ");
+	}
+	
+	public static void debugMsg(String msg, int bold){
+		String prefix = null;
+		if ( bold == 1){
+			prefix = "###";
+		} else if ( bold == 2){
+			prefix = "######";
+		}else{
+			prefix = "";
+		}
+		StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+		if ( stackTraceElements.length >=2 ){
+			StackTraceElement ste = stackTraceElements[2];
+			debugLog.log(prefix + " [ " + String.format("%06.6f", Global.currentTime) + " ] " + ste.getMethodName() + ": " + msg + "\n");
+		}
+		else
+			debugLog.log("[ ERROR LOGGING ] ############################## the stacktrace is too small ############################## ");
+	}
+	
+	
 }

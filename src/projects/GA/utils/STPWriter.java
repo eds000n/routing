@@ -16,10 +16,14 @@ public class STPWriter {
 	ArrayList<Double> nodesWeights;
 	ArrayList<STPEdge> edges;
 	ArrayList<Integer> terminals;
+	ArrayList<Double> nodesX;
+	ArrayList<Double> nodesY;
+	String timestamp;
 	
-	public STPWriter(String filename, int obj){
+	public STPWriter(String filename, int obj, String timestamp){
 		this.filename = filename;
 		this.obj = obj;
+		this.timestamp = timestamp;
 	}
 	
 	/**
@@ -29,16 +33,21 @@ public class STPWriter {
 	 */
 	public void setInput(HashMap<Integer, Vertex> nodes, List<String> edges) {
 		this.nodesWeights = new ArrayList<Double>(Collections.nCopies(nodes.size(), 0.));
+		this.nodesX = new ArrayList<Double>(Collections.nCopies(nodes.size(), 0.));
+		this.nodesY = new ArrayList<Double>(Collections.nCopies(nodes.size(), 0.));
 		this.edges = new ArrayList<STPEdge>();
 		this.terminals = new ArrayList<Integer>();
 //		for (Vertex v : nodes){
 		for (Integer key : nodes.keySet()){
 			Vertex v = nodes.get(key);
-			if ( GANode.UpNodes.get(v.ID-1)==1 ){
+//			if ( GANode.UpNodes.get(v.ID-1)==1 ){
+			if ( GANode.DisconnectedNodes.get(v.ID-1)==1 ){
 				//nodesWeights.set(v.ID - 1, (double) ((GANode)Tools.getNodeByID(v.ID)).getBattery().getTotalSpentEnergy());
 				nodesWeights.set(v.ID - 1, v.battery);
 				if (v.terminal==1)
 					this.terminals.add(v.ID);
+				nodesX.set(v.ID - 1, v.x);
+				nodesY.set(v.ID - 1, v.y);
 			}
 			
 		}
@@ -56,6 +65,7 @@ public class STPWriter {
 		writeComment(printFile);
 		writeGraph(printFile);
 		writeTerminals(printFile);
+		writeCoordinates(printFile);
 		if (this.obj==2 || this.obj==3){
 			writeNodeWeights(printFile);
 		}
@@ -75,7 +85,7 @@ public class STPWriter {
 		else if (this.obj == 3)
 			pf.println("Name    \"Routing at WSNs normalized node-weighted\"");
 		pf.println("Creator \"Edson Ticona Zegarra\"");
-		pf.println("Remark  \"Random instances considering nodes as sensors\"");   
+		pf.println("Remark  \"Random instances considering nodes as sensors, timestamp " + this.timestamp + "\"");
 		pf.println("END");
 		pf.println();
 	}
@@ -95,6 +105,14 @@ public class STPWriter {
 		pf.println("Terminals " + terminals.size());
 		for(Integer t: terminals)
 			pf.println("T "+ t);
+		pf.println("END");
+		pf.println();
+	}
+	
+	private void writeCoordinates(PrintWriter pf){
+		pf.println("SECTION Coordinates");
+		for(int i=0; i<nodesX.size(); i++)
+			pf.println("DD " + (i+1) + " " + nodesX.get(i) + " " + nodesY.get(i));
 		pf.println("END");
 		pf.println();
 	}

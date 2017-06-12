@@ -262,7 +262,7 @@
 <Event>
 	<NumEvents value = "6" />
 	<Time value = "1000" />
-	<DataRate value = "60" />
+	<DataRate value = "6" />
 	<EventSize value = "50" />
 	<EventEnd value = "25100" />
 	<EventStart1 value = "2000" />
@@ -278,9 +278,9 @@
 	<Xposition1 value="169" />
 	<Yposition1 value="97" />
 	<Xposition2 value="120" />
-	<Yposition2 value="469" />
+	<Yposition2 value="269" />
 	<Xposition3 value="105" />
-	<Yposition3 value="560" />
+	<Yposition3 value="348" />
 	<Xposition4 value="361" />
 	<Yposition4 value="626" />
 	<Xposition5 value="612" />
@@ -295,12 +295,12 @@
 	<Yposition9 value="200" />
 	<Xposition10 value="200" />
 	<Yposition10 value="200" />
-	<EventEnd1 value = "10000" />
-	<EventEnd2 value = "11000" />
-	<EventEnd3 value = "12000" />
-	<EventEnd4 value = "13000" />
-	<EventEnd5 value = "14000" />
-	<EventEnd6 value = "15000" />
+	<EventEnd1 value = "22000" />
+	<EventEnd2 value = "21000" />
+	<EventEnd3 value = "26000" />
+	<EventEnd4 value = "26000" />
+	<EventEnd5 value = "26000" />
+	<EventEnd6 value = "26000" />
 </Event>
 <Log>
 	<LogFile value="SPTLog.txt" />

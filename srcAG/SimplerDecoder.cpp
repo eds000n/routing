@@ -26,7 +26,9 @@ void SimplerDecoder::read_edges(ifstream& file, std::unordered_map<int,ListGraph
 	 	initial_tree.push_back(1);
 	  }
 	}
+#ifdef DEBUG
 	draw_solution(init_sol, 3, "init_sol", 0);
+#endif
 }
 
 // read the nodes from the file
@@ -50,6 +52,7 @@ void SimplerDecoder::read_nodes(ifstream& file, std::unordered_map<int,ListGraph
 	    (*is_terminal)[node] = true;
 	    (*shapes)[node] = 1;	//Set this shape to a square
 	    (*colors)[node] = 1;
+	    if ( id==1 ) (*colors)[node] = 2;
 	  }
 	  //
 	  (*node_weights)[node] = battery;
@@ -204,14 +207,16 @@ double SimplerDecoder::compute_value(ListGraph::EdgeMap<bool> &in_tree, bool out
 	ListGraph::NodeMap<bool> visited(graph, false);
 	//SmartGraph::NodeMap<bool> visited(graph, false);
 	//for (SmartGraph::NodeIt n(graph); n != INVALID; ++n)
-	for (ListGraph::NodeIt n(graph); n != INVALID; ++n)
+	for ( ListGraph::NodeIt n(graph); n != INVALID; ++n )
 		if((*is_terminal)[n]){
 			//return compute_value_rec(n, visited, in_tree, has_terminal, output);
 			//double res = compute_value_rec(n, visited, in_tree, has_terminal, output);
 			double res = compute_value_rec(n, visited, in_tree, has_terminal, sol, output);
 			//cout<<"obj "<<res<<endl;
+#ifdef DEBUG
 			if (output)
 				draw_solution(sol, 1, "sol", gen);
+#endif
 			return res;
 		}
 	return 0;

@@ -25,7 +25,7 @@ public class SetRouteMessage extends Message{
 		this.hopToSink = hopToSink;
 		this.numTree = numTree;
 		trees = new ArrayList<GATree>();
-		GANode.debugMsg("Created a SRM by node "+ this.SenderID + " which tree number is " + this.numTree + " by thread " + Thread.currentThread().getId());
+//		GANode.debugMsg("Created a SRM by node "+ this.SenderID + " which tree number is " + this.numTree + " by thread " + Thread.currentThread().getId());
 	}
 	
 	public void addTree(GATree t){

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sinalgo>
-	<ProjectSelector windowWidth="800" windowHeight="586" lastChosenProject="GA" windowPosX="169" windowPosY="103" isMaximized="false" selectedTab="1" />
-	<GUI windowWidth="1358" windowHeight="738" windowPosX="-2" windowPosY="-3" isMaximized="true" ControlPanelExpandSimulation="true" ControlPanelShowFullViewPanel="false" ControlPanelShowTextPanel="true" ControlPanelShowProjectControl="true" RunOperationIsLimited="false" helpWindowWidth="478" helpWindowHeight="489" helpWindowPosX="200" helpWindowPosY="200" helpWindowIsMaximized="false" />
-	<RandomSeed seedFromPreviousRun="737" />
-	<App lastSelectedFileDirectory="/home/edson/workspace/SinalgoALL/src/projects/SPT/" checkForUpdatesAtStartup="false" updateCheckTimeStamp="0" runCmdLineArgs="" />
-	<GenNodesDlg numNodes="256" />
+	<ProjectSelector windowWidth="800" windowHeight="586" lastChosenProject="HCCRFD" windowPosX="169" windowPosY="103" isMaximized="false" selectedTab="1" />
+	<GUI windowWidth="1366" windowHeight="741" windowPosX="0" windowPosY="0" isMaximized="false" ControlPanelExpandSimulation="true" ControlPanelShowFullViewPanel="false" ControlPanelShowTextPanel="true" ControlPanelShowProjectControl="true" RunOperationIsLimited="false" helpWindowWidth="478" helpWindowHeight="489" helpWindowPosX="200" helpWindowPosY="200" helpWindowIsMaximized="false" />
+	<RandomSeed seedFromPreviousRun="4552" />
+	<App lastSelectedFileDirectory="/home/edson/SinalgoALL/src/projects/GA/" checkForUpdatesAtStartup="false" updateCheckTimeStamp="0" runCmdLineArgs="" />
+	<GenNodesDlg numNodes="100" />
 </sinalgo>
 

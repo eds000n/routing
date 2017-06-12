@@ -146,7 +146,7 @@
 		<DefaultMobilityModel value="NoMobility" />
 
 		<!--Default reliability model used when none is specified-->
-		<DefaultReliabilityModel value="DAARPMSWIM:TaxadePerda" />
+		<DefaultReliabilityModel value="ReliableDelivery" />
 
 		<!--Default node implementation used when none is specified-->
 		<DefaultNodeImplementation value="DAARP_STRESS_CENTRALITY:DAARP_STRESS_CENTRALITYNode"/>

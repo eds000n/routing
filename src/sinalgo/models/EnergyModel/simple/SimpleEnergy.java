@@ -1,22 +1,25 @@
 package sinalgo.models.EnergyModel.simple;
 
-
 import java.awt.Color;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Timer;
 
 import projects.DAARPMSWIM.nodes.nodeImplementations.DAARPMSWIMNode;
 import projects.DDAARP.nodes.nodeImplementations.DDAARPNode;
 import projects.GA.nodes.messages.DeadNodeMessage;
 import projects.GA.nodes.nodeImplementations.GANode;
-import projects.GA.nodes.timers.DeadNodeGATimer;
+import projects.GA.nodes.timers.RepairDeadNodeGATimer;
+import projects.HCCRFD.nodes.nodeImplementations.HCCRFDNode;
+import projects.HCCRFD.nodes.timers.RepairDeadNodeHCCRFDTimer;
 import projects.Infra.nodes.nodeImplementations.InfraNode;
 import projects.SPT.nodes.nodeImplementations.SPTNode;
+import projects.SPT.nodes.timers.RepairDeadNodeSPTTimer;
 import sinalgo.models.EnergyModel.IEnergy;
 import sinalgo.models.EnergyModel.EnergyMode;
 import sinalgo.nodes.Node;
+import sinalgo.nodes.TimerCollection;
 import sinalgo.tools.Tools;
-
 
 public class SimpleEnergy implements IEnergy {
     
@@ -38,6 +41,10 @@ public class SimpleEnergy implements IEnergy {
 
 	public void setTotalEnergy(Float totalEnergy) {
 		this.totalEnergy = totalEnergy;
+		if (Tools.getNodeByID(nodeID) instanceof GANode )
+			this.minEnergy = (float) (GANode.bVariation*this.totalEnergy);
+		else
+			this.minEnergy = (float) (0.1f*this.totalEnergy);
 	}
 
 	private int nodeID;		//1-indexed
@@ -57,9 +64,12 @@ public class SimpleEnergy implements IEnergy {
             this.listen = Float.valueOf(0);
             //this.totalEnergy = 29160f;
 //            this.totalEnergy = 200f;
-            this.totalEnergy = 50f;
+            this.totalEnergy = 5f;	//unit?
             this.nodeID = nodeID;
-            this.minEnergy = 0.05f*this.totalEnergy;
+            if (Tools.getNodeByID(nodeID) instanceof GANode )
+    			this.minEnergy = (float) (GANode.bVariation*this.totalEnergy);
+    		else
+    			this.minEnergy = (float) (0.1f*this.totalEnergy);
     }
    
     public void setIsSinkNeighbor(boolean isSinkNeighbor){
@@ -109,6 +119,9 @@ public class SimpleEnergy implements IEnergy {
             }              
     }
 
+    /**
+     * returns the residual (remaining) energy 
+     */
     public Float getEnergy() {
             return totalEnergy - getTotalSpentEnergy();
     }
@@ -121,36 +134,41 @@ public class SimpleEnergy implements IEnergy {
 	public void spend(EnergyMode mode) {
 		//The energy model assumes that the energy required for transmission and reception are the same
 		spend(mode, 1);
+	
 		if (Tools.getNodeByID(this.nodeID) instanceof GANode){
 			if ( getEnergy() < this.minEnergy && !GANode.terminals.contains(this.nodeID-1) ){
+				
 				if ( !((GANode)Tools.getNodeByID(this.nodeID)).isDead() ){
-					DeadNodeMessage dnm = new DeadNodeMessage(nodeID, getEnergy());
-					DeadNodeGATimer dnt = new DeadNodeGATimer(Tools.getNodeByID(nodeID));
-//					dnt.startRelative(GANode.DataRate/2, Tools.getNodeByID(nodeID));
-					dnt.startRelative(1, Tools.getNodeByID(nodeID));
+					
+					RepairDeadNodeGATimer rdnt = new RepairDeadNodeGATimer(Tools.getNodeByID(nodeID));
+					rdnt.startRelative(0.5, Tools.getNodeByID(nodeID));
+					
 					((GANode)Tools.getNodeByID(this.nodeID)).setDead(true);
 				}
+				((GANode)Tools.getNodeByID(this.nodeID)).warningMessages++;
 			}
-			//if (getEnergy()<0 ){
-			//if ( getEnergy()<= 0 && this.nodeID!=1 && this.isSinkNeighbor ){ //Validates if there is no more energy in the neigbors of the sink
-			if ( getEnergy()<= 0 && this.nodeID!=1 ){ //Validates if there is no more energy 
+			//if ( getEnergy()<= 0 && this.nodeID!=1 && this.isSinkNeighbor ){ //Validates if there is no more energy in the neighbors of the sink
+			if ( getEnergy()<= 0 && this.nodeID!=1 ){ //Validates if there is no more energy
+				
+				//eraseTimers();
 //				isDead = 1;
 				if ( Tools.getNodeByID(this.nodeID) instanceof GANode ){
 					GANode n = (GANode)Tools.getNodeByID(this.nodeID);
-					
-					
 					if ( GANode.terminals.contains(this.nodeID-1) ){	//I only discard nodes by energy if they aren't terminals
 						//System.out.println("ENERGY LOG: dead node: " + this.nodeID + " (terminal) at " + Tools.getGlobalTime() + " seconds at round " + this.energyPerRound.size());
 					}else{
-						n.UpNodes.set(this.nodeID-1, 0);
+						//GANode.UpNodes.set(this.nodeID-1, 0);
 						n.setColor(Color.DARK_GRAY);
 						System.out.println("ENERGY LOG: dead node: " + this.nodeID + " at " + Tools.getGlobalTime() + " seconds at round " + this.energyPerRound.size());
+						
+						//Remove timers from this node.
+						
 					}
 					
 				}
 				
 				//FIXME: not reporting data into the log because it is not generating the MSGTREE message necessary for collecting the final routing tree.
-				
+				/*
 				Iterator<Node> it = Tools.getNodeList().iterator();
 				Node next;
 				while(it.hasNext()){
@@ -194,8 +212,35 @@ public class SimpleEnergy implements IEnergy {
 					;//sinalgo.tools.Tools.exit();
 				else if ( obj==2 || obj==3 ){
 					;//GANode.UpNodes.set(index, element)
-				}
+				}*/
 					
+			}
+		}else if (Tools.getNodeByID(nodeID) instanceof SPTNode){
+			if ( getEnergy() < this.minEnergy && !SPTNode.terminals.contains(this.nodeID-1) ){
+				if ( !((SPTNode)Tools.getNodeByID(this.nodeID)).isDead() ){
+					
+					RepairDeadNodeSPTTimer rdnt = new RepairDeadNodeSPTTimer((SPTNode)Tools.getNodeByID(nodeID));
+					rdnt.startRelative(0.5, Tools.getNodeByID(nodeID));
+					
+					((SPTNode)Tools.getNodeByID(this.nodeID)).setDead(true);
+				}
+				//((SPTNode)Tools.getNodeByID(this.nodeID)).warningMessages++;
+			}
+			if ( getEnergy()<= 0 && this.nodeID!=1 ){ //Validates if there is no more energy
+				
+			}
+		}else if (Tools.getNodeByID(nodeID) instanceof DAARPMSWIMNode){
+			;
+		}else if (Tools.getNodeByID(nodeID) instanceof DDAARPNode ){
+			;
+		}else if (Tools.getNodeByID(nodeID) instanceof HCCRFDNode ){
+			if ( getEnergy() < this.minEnergy && !HCCRFDNode.terminals.contains(this.nodeID-1) ){
+				if ( !((HCCRFDNode)Tools.getNodeByID(this.nodeID)).isDead() ){
+					RepairDeadNodeHCCRFDTimer rdnt = new RepairDeadNodeHCCRFDTimer((HCCRFDNode)Tools.getNodeByID(nodeID));
+					rdnt.startRelative(0.5,  Tools.getNodeByID(nodeID));
+					
+					((HCCRFDNode)Tools.getNodeByID(this.nodeID)).setDead(true);
+				}
 			}
 		}
 		
@@ -204,8 +249,5 @@ public class SimpleEnergy implements IEnergy {
 //		return isDead;
 		
 	}
-
-    
-    
 }
 

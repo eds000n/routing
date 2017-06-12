@@ -9,8 +9,9 @@
 // ./sensores population generations objtype filename [f] [k]
 int main(int argc, char* argv[]) {
   if (argc == 1){
-    std::cout<<"./sensores population generations objtype filename [f] [k]"<<endl;
+    std::cout<<"./sensores population generations objtype filename [processing] [f] [k]"<<endl;
     std::cout<<"objtype can be 1 (without battery), 2 (with batter) and 3 (with normalized battery)"<<endl;
+    std::cout<<"processing by default is 1(true)"<<endl<<endl;
     return 0;
   }
   const unsigned p = atoi(argv[1]);
@@ -18,14 +19,19 @@ int main(int argc, char* argv[]) {
   const unsigned objtype = atoi(argv[3]);//indicates type of problem: 1 without battery, 2 with battery, 3 with normalized battery
   char* filename = argv[4];
   double f=1, k=1;
+  bool preprocessing = true;
+  if ( argc >= 6 )
+    if ( atoi(argv[5])==0 )
+      preprocessing = false;
   //SimplerDecoder dec
   if ( objtype == 2 ){
-    f = atof(argv[5]);
-    k = atof(argv[6]);
+    f = atof(argv[6]);
+    k = atof(argv[7]);
   }else if (objtype == 3){
-    f = atof(argv[5]);
-    k = atof(argv[6]);
+    f = atof(argv[6]);
+    k = atof(argv[7]);
   }
+
   SimplerDecoder decoder(filename, objtype, f, k);     // initialize the decoder
   const unsigned m = countEdges(decoder.graph);   // size of chromosomes
   
@@ -57,17 +63,19 @@ int main(int argc, char* argv[]) {
   double last = -1;
   int rep = 0;
 
-  std::vector< std::vector<ListGraph::Edge> > sols;
-  decoder.draw_graph("input_0.eps", "initial graph");
-  decoder.degree_test();
-  decoder.draw_graph("input_wdt.eps", "with degree test");
-  decoder.rsph(1, sols);
+  if ( preprocessing ){
+    std::vector< std::vector<ListGraph::Edge> > sols;
+    decoder.draw_graph("input_0.eps", "initial graph");
+    decoder.degree_test();
+    decoder.draw_graph("input_wdt.eps", "with degree test");
+    decoder.rsph(1, sols);
 
-  for ( std::vector< std::vector<ListGraph::Edge> >::iterator it=sols.begin(); it!=sols.end(); ++it) {
-    std::vector<double> tmp_sol(m, 1);
-    for ( std::vector<ListGraph::Edge>::iterator ii=(*it).begin(); ii!= (*it).end(); ++ii )
-      tmp_sol[(*(decoder.edge_chromosome))[*ii]] = 0;
-    algorithm.inject_solution(tmp_sol);
+    for ( std::vector< std::vector<ListGraph::Edge> >::iterator it=sols.begin(); it!=sols.end(); ++it) {
+      std::vector<double> tmp_sol(m, 1);
+      for ( std::vector<ListGraph::Edge>::iterator ii=(*it).begin(); ii!= (*it).end(); ++ii )
+        tmp_sol[(*(decoder.edge_chromosome))[*ii]] = 0;
+      algorithm.inject_solution(tmp_sol);
+    }
   }
 
   do {

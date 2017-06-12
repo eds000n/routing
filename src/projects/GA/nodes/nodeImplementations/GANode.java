@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import projects.GA.nodes.messages.MCIMessage;
 import projects.GA.nodes.messages.MSGTREE;
 import projects.GA.nodes.messages.RemoveMessage;
 import projects.GA.nodes.messages.RequestRouteMessage;
+import projects.GA.nodes.messages.SetRepairRouteMessage;
 import projects.GA.nodes.messages.GADataMessage;
 import projects.GA.nodes.messages.SetRouteMessage;
 import projects.GA.nodes.timers.BorderCollectInformationTimer;
@@ -31,6 +33,8 @@ import projects.GA.nodes.timers.EventEndGATimer;
 import projects.GA.nodes.timers.EventSPTTimer;
 import projects.GA.nodes.timers.MessageSPTTimer;
 import projects.GA.nodes.timers.MessageTimer;
+import projects.GA.nodes.timers.RepairDeadNodeGATimer;
+import projects.GA.nodes.timers.RepairDeadNodeTimer;
 import projects.GA.nodes.timers.GATimer;
 import projects.GA.nodes.timers.SetRouteTimer;
 import projects.GA.nodes.timers.VerifyBorderNodeTimer;
@@ -44,9 +48,11 @@ import sinalgo.configuration.Configuration;
 import sinalgo.configuration.CorruptConfigurationEntryException;
 import sinalgo.configuration.WrongConfigurationException;
 import sinalgo.gui.transformation.PositionTransformation;
+import sinalgo.io.eps.Exporter;
 import sinalgo.models.EnergyModel.EnergyMode;
 import sinalgo.models.EnergyModel.simple.SimpleEnergy;
 import sinalgo.nodes.Node;
+import sinalgo.nodes.TimerCollection;
 import sinalgo.nodes.messages.Inbox;
 import sinalgo.nodes.messages.Message;
 import sinalgo.nodes.messages.NackBox;
@@ -57,7 +63,7 @@ import sinalgo.tools.statistics.UniformDistribution;
 
 public class GANode extends Node {
 //	private HashMap<EventKey, RoutingTableEntry> routingtable = new HashMap<EventKey, RoutingTableEntry>();
-	private int HopToSink = 100000; // Distance in Hops to Sink
+	private int HopToSink = 100000; // Distance in Hops to Sink. DON'T RELY ON IT TO MAKE THE ROUTING. IT INCREASES THE OVERHEAD
 	private int NextHopSink = 100000; // My Relay of Data
 	private int ownerID = this.ID; // My OwnerID
 	private boolean senddata = false; //
@@ -89,9 +95,11 @@ public class GANode extends Node {
 	public static int Edges = 0;
 	public static int DataRate = 0;
 	public static int Density = 0;
-
+	
+	public int warningMessages = 0;
 	public static int populations = 0;
 	public static int generations = 0;
+	public static int preprocessing = 1;
 	public static int objFunction = 1;
 	public static double fFactor = 1;
 	public static double kFactor = 1;
@@ -150,7 +158,6 @@ public class GANode extends Node {
 	private ArrayList<Integer> filhos = new ArrayList<Integer>();
 	private ArrayList<Integer> filhossend = new ArrayList<Integer>();
 	private ArrayList<Integer> filhosrecv = new ArrayList<Integer>();
-	private ArrayList<Integer> myOpimizers = new ArrayList<Integer>();
 
 	private static int enviados = 0;
 
@@ -166,10 +173,6 @@ public class GANode extends Node {
 	public int cont = 0;
 	//public int numberOfNodes;
 	public int idMsg = 0;
-	public boolean startCorrect = false;
-	public boolean oneCorrect = false;
-	public boolean oneOptimeze = false;
-	public boolean from = false;
 
 	private static boolean checkConnectivity = true;
 	// public static List<String> listTree = new ArrayList<String>();
@@ -179,6 +182,7 @@ public class GANode extends Node {
 	//public static int[][] AdjMatrix ;
 	public static List<Integer>[] AdjList; 		// Adjacency list 0-indexed
 	public static ArrayList<Integer> UpNodes = new ArrayList<>(); 	//1: node awaken, 0: dead node 0-indexed
+	public static ArrayList<Integer> DisconnectedNodes = new ArrayList<>(); 	//1: node connected, 0: disconnected 0-indexed
 	//public static ArrayList< Vertex > nodes = new ArrayList<Vertex>();		
 	public static HashMap<Integer, Vertex> nodes = new HashMap<>();	//Nodes as seen by the sink (1-indexed), note that they may no have the real battery values due to some synchronization, however the real values don't differ significantly
 	public static List<String> edges = new ArrayList<String>();		//Edges as seen by the sink
@@ -186,7 +190,7 @@ public class GANode extends Node {
 	static Thread threadGA = null;					//Thread executing the BRKGA algorithm
 	static ExecuteAG executeAG = null;				//Class implementing runnable 
 	public static ArrayList<Integer> terminals = new ArrayList<Integer>();		//List of terminal nodes, 0-indexed
-	private boolean isDead = false ;		
+	private boolean isDead = false ;
 	
 	private int numTree = 0;
 	private int isBorderNode = 0; //0: unknown, 1: is border node, 2: is NOT border node
@@ -196,9 +200,6 @@ public class GANode extends Node {
 
 	public boolean requestedRoute = false;
 
-	public static boolean computingRoutingTree = false;
-
-	
 	public static int numSPTFiles = 0;
 	private boolean runUpdateAdjacencyMatrix = false;
 	
@@ -206,7 +207,10 @@ public class GANode extends Node {
 	public void handleMessages( Inbox inbox ) {
 		// TODO Auto-generated method stub
 		int sender;
-
+		
+		if ( GANode.UpNodes.get(this.ID-1)== 0 )	// The nodes just process the packets as long as they are awake (have energy) 
+			return;
+		
 		while ( inbox.hasNext() ) {
 			Message msg = inbox.next();
 			sender = inbox.getSender().ID;
@@ -238,12 +242,16 @@ public class GANode extends Node {
 				SetRoute(msg);
 			}
 			
-			if (msg instanceof RemoveMessage ){
+			if (msg instanceof RemoveMessage ){	//Remove node due to a finished event.
 				Remove(msg);
 			}
 			
-			if (msg instanceof DeadNodeMessage){
+			if (msg instanceof DeadNodeMessage){		//Message sent from the dead node to the sink
 				ReportDeadNode(msg);
+			}
+			
+			if (msg instanceof SetRepairRouteMessage){	//Message to set repair (fix) the route of the nodes that became orphan
+				SetRepairRoute(msg);
 			}
 		}
 	}
@@ -369,21 +377,58 @@ public class GANode extends Node {
 	 */
 	private void ReportDeadNode(Message msg) {
 		DeadNodeMessage dnm = (DeadNodeMessage)msg;
-		if(this.ID==1){//Sink
+		battery.spend(EnergyMode.LISTEN);
+		if (this.ID==1) {//Sink
 			debugMsg(">>> SINK recieved ReportDeadMessage from node " + dnm.getNodeID() + " reported itself as dead with battery of " + dnm.getReportedEnergy(), 2);
-			debugMsg(">>> GANode.UpNodes " + GANode.UpNodes.get(dnm.getNodeID() - 1));
+			//debugMsg(">>> GANode.UpNodes " + GANode.UpNodes.get(dnm.getNodeID() - 1));
 			GANode.UpNodes.set(dnm.getNodeID() - 1, 0);
+			GANode.DisconnectedNodes.set(dnm.getNodeID()-1, 0);
+			
+			updateConnectedComponents(dnm.getNeighbors());		//Updates the connected components and fixes, if possible, the neighbors of the dead node so they don't lose connectivity.
+			
 			runGAAlgorithm(dnm.getNodeID(), 4, null);
-			debugMsg(">>> GANode.UpNodes " + GANode.UpNodes.get(dnm.getNodeID() - 1));
+			
+			//debugMsg(">>> GANode.UpNodes " + GANode.UpNodes.get(dnm.getNodeID() - 1));
+			int dn = 0;
+			for ( Integer i : DisconnectedNodes )
+				dn += i;
+			debugMsg(">>> SINK number of connected nodes " + dn);
+			
 		}else{
 			send(dnm, Tools.getNodeByID(this.NextHopSink));
 			battery.spend(EnergyMode.SEND);
 			Overheads+=1;
-			debugMsg("node " + this.ID + " retransmitiong DeadNodeMessage for node " + dnm.getNodeID());
+			debugMsg("node " + this.ID + " retransmitting DeadNodeMessage for node " + dnm.getNodeID() + " list of reconfiguring nodes " + dnm.getNeighbors());
 		}
 	}
 
-	
+	/**
+	 * Method to process the SetRepairRouteMessage. This message is generated in the sink and 
+	 * retransmited trough the path until reaching the last node.
+	 * @param msg
+	 */
+	private void SetRepairRoute(Message msg) {
+		SetRepairRouteMessage srrm = (SetRepairRouteMessage)msg;
+		debugMsg("))SetRepairRouteMessage rcvd by " + this.ID + " path " + srrm.getPath());
+		debugMsg(")))" + this.NextHopSink + " " + srrm.getNextHop() + ", " + srrm.getHopsToSink());
+		this.NextHopSink = srrm.getNextHop();
+		this.HopToSink = srrm.getHopsToSink();
+//		if ( this.ID == ((GANode)Tools.getNodeByID(this.NextHopSink)).NextHopSink )
+//			debugMsg("wdf!");
+		if (srrm.getPath().size() > 0){
+//			if ( this.NextHopSink == this.ID ){
+//				debugMsg("wdf!");
+//			}
+			srrm.setNextHop(this.ID);
+			srrm.setHopsToSink(srrm.getHopsToSink()+1);
+			//send(srrm, Tools.getNodeByID(srrm.top()));
+			int destiny = srrm.top();
+			RepairDeadNodeTimer rdnt = new RepairDeadNodeTimer(Tools.getNodeByID(this.ID), srrm, Tools.getNodeByID(destiny));
+			rdnt.startRelative(0.0001, Tools.getNodeByID(this.ID));
+			
+		}
+	}
+
 	/**
 	 * Collects information (the whole network representation as a graph) starting from the border
 	 * nodes. Since we are not considering a mobility model the edges will remain the same in time.
@@ -509,8 +554,12 @@ public class GANode extends Node {
 //				System.out.println("## terminals " + terminals);
 				debugMsg("number of terminals: " + terminals.size() +", terminals: " + terminals );
 				ArrayList<Integer> shortestPathToTree = new ArrayList<Integer>();
-				if (getShortestPathToTree(requestRouteMessage.getRequesterID()-1, shortestPathToTree)==-1)
+				int gspt = getShortestPathToTree(requestRouteMessage.getRequesterID()-1, shortestPathToTree);
+				if ( gspt ==-1 )//when no there is no current solution, that is, just at the first call
 					runGAAlgorithm(requestRouteMessage.getRequesterID(), 1, requestRouteMessage.getPath());
+				else if ( gspt == 1){//when the node got disconnected from the graph due to dead node
+					runGAAlgorithm(requestRouteMessage.getRequesterID(), 1, shortestPathToTree);//FIXME
+				}
 				else
 					runGAAlgorithm(requestRouteMessage.getRequesterID(), 1, shortestPathToTree);
 			}
@@ -549,6 +598,8 @@ public class GANode extends Node {
 		ArrayList<Integer> parent = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
 		int connecting_node = (int)nodes.get(0)-1;
 		int dmin = bfs(u, connecting_node, parent);
+		if ( dmin == -1 )//Not found, disconnected graph
+			return 1;
 		//printParentArray(parent,connecting_node);
 		for(int i=1; i<nodes.size(); i++){
 			ArrayList<Integer> tmp_parent = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
@@ -620,13 +671,18 @@ public class GANode extends Node {
 		System.out.println("!!!!!!!!!!!!!!!!!!");*/
 		
 		//This block is for printing the edges in the format u-v weight sol
+		//Connectivity is STRONGER thatn awaken. 
+		//That is, if the node is UP it may be part the network, depending if it's connected, or not. 
+		//On the other hand, if a node is DISCONNECTED, it wont be part of the network independtly of being UP or not.
 		Hashtable<String, Integer> added = new Hashtable<>();
 		for(int i=0; i<n; i++)
-			if (UpNodes.get(i)==1){					//Verify if the node is awaken
+			//if (UpNodes.get(i)==1){					//Verify if the node is awaken
+			if (DisconnectedNodes.get(i)==1){					//Verify if the node is CONNECTED
 				for(int j=0; j<AdjList[i].size(); j++){
 					int sol = 0;
 					int u = i+1;
-					if ( UpNodes.get(AdjList[i].get(j)) ==1 ){		//Verify whether the node in the other end of the edge is dead. 
+//					if ( UpNodes.get(AdjList[i].get(j)) ==1 ){		//Verify whether the node in the other end of the edge is dead. 
+					if ( DisconnectedNodes.get(AdjList[i].get(j)) ==1 ){		//Verify whether the node in the other end of the edge is CONNECTED
 						int v = AdjList[i].get(j)+1;
 						if (u>v){
 							u = AdjList[i].get(j)+1;
@@ -665,7 +721,8 @@ public class GANode extends Node {
 			int aliveNodes = 0;
 			for(Integer i: GANode.UpNodes)
 				aliveNodes += i;
-			FileWriter file = new FileWriter( "srcAG/log" + GANode.numSPTFiles + ".dat" );
+			//FileWriter file = new FileWriter( "srcAG/log" + GANode.numSPTFiles + ".dat" );	//I guess this was only for testing
+			FileWriter file = new FileWriter( "srcAG/log.dat" );
 			PrintWriter printFile = new PrintWriter( file );
 //			printFile.println(nodes.size() + " " + edges.size());
 			printFile.println( aliveNodes + " " + edges.size());
@@ -673,7 +730,7 @@ public class GANode extends Node {
 			//for (Vertex v : nodes){
 			for (Integer key : nodes.keySet()){
 				Vertex v = nodes.get(key);
-				if ( GANode.UpNodes.get(v.ID-1)==1 )
+				if ( GANode.DisconnectedNodes.get(v.ID-1)==1 )
 					printFile.println(	v.ID + " " + 
 										v.terminal + " " +
 										v.x + " " + 
@@ -681,7 +738,6 @@ public class GANode extends Node {
 										v.battery);
 			}
 				
-			
 			/*for(int i=0; i<n; i++)
 				printFile.println(	nodes.get(i).ID + " " + 
 									nodes.get(i).terminal + " " +
@@ -697,25 +753,22 @@ public class GANode extends Node {
 			
 			//Print file in SPT format
 			String stpname = String.format("ff%04d.stp", GANode.numSPTFiles);
-			String dotname = String.format("t" + Global.currentTime + "_gg%04d.dot", GANode.numSPTFiles);
+//			String dotname = String.format("t" + Global.currentTime + "_gg%04d.dot", GANode.numSPTFiles);
 			
-			STPWriter sptfile = new STPWriter(stpname, this.objFunction);
+			STPWriter sptfile = new STPWriter(stpname, this.objFunction, ""+Global.currentTime ); 
 			sptfile.setInput(nodes, edges);
 			sptfile.write();
 			//System.out.println("SendDataEvent(): updateBattery: objFunction=1, Printing dot file" + stpname);
 			
 			//Print graph in NEATO format
-			NEATOWriter neatofile = new NEATOWriter(dotname, this.battery.getInitialEnergy());
-			neatofile.setInput(nodes, edges);
-			neatofile.write();
-			debugMsg("Printing dot file " + dotname + " and stp file " + stpname,1);
-			
+//			NEATOWriter neatofile = new NEATOWriter(dotname, this.battery.getInitialEnergy());
+//			neatofile.setInput(nodes, edges);
+//			neatofile.write();
+//			debugMsg("Printing dot file " + dotname + " and stp file " + stpname,1);
 			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
-			
 			
 	}
 
@@ -754,11 +807,11 @@ public class GANode extends Node {
 	/**
 	 * Standard bfs for getting the shortest path between u and v in an unweighted graph.
 	 * Method used for getting the shortest path between a node a the existing routing tree 
-	 * @param v1
-	 * @param v2
+	 * @param v1 source node 0-indexed
+	 * @param v2 destiny node 0-indexed
+	 * @param parent array
 	 */
 	public int bfs(int v1, int v2, ArrayList<Integer> parent){ //This method works everything 0-indexed
-		
 		ArrayList<Integer> visited = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
 		ArrayList<Integer> distance = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
 		visited.set(v1, 1);
@@ -772,8 +825,10 @@ public class GANode extends Node {
 			int u = (int) q.poll();
 			//System.out.print("r"+c+" "+u+": ");
 			for(int i=0; i<AdjList[u].size(); i++){
-				int v = AdjList[u].get(i);
 				
+				int v = AdjList[u].get(i);
+				if (GANode.UpNodes.get(v)==0)
+					continue;
 				if (visited.get(v)==0){//not yet visited
 					parent.set(v, u);
 					if (distance.get(v)==1){
@@ -789,17 +844,154 @@ public class GANode extends Node {
 					}
 					q.add(v);
 				}
-				
 			}
 			//c++;
 			//System.out.println();
 			if (found)
 				break;
 		}
+		if (!found && GANode.UpNodes.get(v2)==1){//If it was not found and is up (has energy) then mark it as disconnected
+			bfsMarkDisconnected(v1);
+			return -1;
+		}
 		System.out.println("BFS from "+ v1 + " to " + v2 + " distance: " + distance.get(v2));
 		return distance.get(v2);
 	}
 	
+	/**
+	 * @param v1 node where to start the bfs. 0-indexed
+	 * @param visited
+	 */
+	public void bfs(int v1, ArrayList<Boolean> visited){
+		Queue q = new LinkedList<Integer>();
+		q.add(v1);
+		visited.set(v1, true);
+		while ( !q.isEmpty() ){
+			int u = (int) q.poll();
+			for(int i=0; i<AdjList[u].size(); i++){
+				int v = AdjList[u].get(i);
+				if (GANode.DisconnectedNodes.get(v)==0)
+					continue;
+				if ( !visited.get(v) ) {
+					visited.set(v, true);
+					q.add(v);
+				}
+			}
+		}
+	}
+	/**
+	 * Makes a BFS to set nodes as disconnected from the terminal.
+	 * @param v1 disconnected node 0-indexed
+	 */
+	void bfsMarkDisconnected(int v1){
+		debugMsg(v1 + " disconnected, marking the nodes that reach it as disconnected");
+//		Exporter exp = new Exporter();
+//		new Exporter(this).export(new Rectangle(0, 0, graphPanel.getWidth(), graphPanel.getHeight()), getTransformator());
+		ArrayList<Integer> visited = new ArrayList<Integer>(Collections.nCopies(AdjList.length, 0));
+		visited.set(v1, 1);
+		Queue<Integer> q = new LinkedList<Integer>();
+		q.add(v1);
+		while (!q.isEmpty()){
+			int u = (int) q.poll();
+			System.out.print(u+": ");
+			for(int i=0; i<AdjList[u].size(); i++){
+				int v = AdjList[u].get(i);
+				System.out.print(v+", ");
+				if (GANode.DisconnectedNodes.get(v)==0)
+					continue;
+				if (visited.get(v)==0){//not yet visited
+					visited.set(v, 1);//Mark as visited
+					q.add(v);
+					GANode.DisconnectedNodes.set(v, 0);
+					//if ( GANode.terminals.contains(v) )
+					//	GANode.ter .set(v, 0);
+					/*if ( GANode.terminals.contains(v) ){
+						for ( sinalgo.nodes.timers.Timer t : Tools.getNodeByID(v+1).getTimers() ){
+							t.
+						}
+					}*/
+						
+				}
+			}
+			System.out.println();
+		}
+	}
+	
+	/**
+	 * Connected components. Function to verify if a dead node leaves a component disconnected.
+	 * The component connected to the sink is always connected; the others aren't.
+	 * It just considers the UpNodes.
+	 * @param nodes nodes to be fixed. 1-indexed
+	 */
+	public void updateConnectedComponents(ArrayList<Integer> nodes){
+		ArrayList<Boolean> visited = new ArrayList<Boolean>(Collections.nCopies(AdjList.length, false));
+		bfs(0, visited);
+		for(int i=0; i< nodes.size(); i++)//Verify if the node can be reached
+			if ( visited.get(nodes.get(i)-1) == true ){//can be reached,
+				ArrayList<Integer> parent = new ArrayList<>(Collections.nCopies(AdjList.length, 0));
+				bfs(0, nodes.get(i)-1, parent);
+				ArrayList<Integer> path = new ArrayList<>();
+				
+				int tmp = parent.get(nodes.get(i)-1);
+				//String msg = "route: "+u+" ";
+				while (tmp != -1){
+//					System.out.print(parent.get(tmp)+" ");
+					//msg += parent.get(tmp)+" ";
+					path.add(tmp+1);
+					tmp = parent.get(tmp);
+				}
+//				System.out.println(" ******** " + path);
+//				System.out.println(" ******** " + nodes.get(i));
+				path.add(0,nodes.get(i));
+				Collections.reverse(path);
+				path.remove(0);
+				int destiny = path.get(0);
+				path.remove(0);
+				//path.add(nodes.get(i));
+//				System.out.println(" --------	 " + path);
+				SetRepairRouteMessage srrm = new SetRepairRouteMessage(this.ID);
+				srrm.setPath(path);
+				RepairDeadNodeTimer rdnt = new RepairDeadNodeTimer(Tools.getNodeByID(1), srrm, Tools.getNodeByID(destiny));
+				rdnt.startRelative(0.0001, Tools.getNodeByID(1));
+//				RepairDeadNodeGATimer rtimer = new RepairDeadNodeGATimer(this);
+			}
+		for ( int i=0; i<GANode.DisconnectedNodes.size(); i++ ){
+			if (GANode.DisconnectedNodes.get(i)==1 && !visited.get(i))
+				bfsMarkDisconnected(i);
+		}
+		
+		checkTerminalConnectivity();
+	}
+	
+	private void checkTerminalConnectivity() {
+		int n = 0;
+		for(int i=0; i<GANode.terminals.size(); i++){
+			if ( GANode.DisconnectedNodes.get(GANode.terminals.get(i)) == 0 ){
+				eraseTimers(GANode.terminals.get(i)+1);
+				n++;
+			}
+		}
+		/*if ( n == GANode.terminals.size() ){
+			debugMsg("Finishing simulation");
+			sinalgo.tools.Tools.exit();
+		}*/
+	}
+	
+	/**
+	 * Erases timers of the node
+	 * @param nodeID id of the node to erase its timers. 1-indexed
+	 */
+	public void eraseTimers(int nodeID){
+		Tools.getEventQueue().removeAllEventsForThisNode(Tools.getNodeByID(nodeID));
+		/*Node n = Tools.getNodeByID(nodeID);
+		TimerCollection timerCollection = n.getTimers();
+		Iterator<sinalgo.nodes.timers.Timer> it = timerCollection.iterator();
+		if ( timerCollection.size() > 0 )
+			while ( it.hasNext() ){
+				it.remove();
+			}*/
+	}
+
 	/**
 	 * 
 	 * @param requesterID (1-indexed) the node that request a new route 
@@ -818,7 +1010,7 @@ public class GANode extends Node {
 		else if ( reason == 2 ){
 			debug_msg = "Remove";
 			PrintGAInput(requesterID, new ArrayList<Integer>(), false);
-		}			
+		}	
 		else if ( reason == 3 ){
 			debug_msg = "Variation";
 			PrintGAInput(-1, new ArrayList<Integer>(), true);
@@ -838,12 +1030,18 @@ public class GANode extends Node {
 //				this.wait(10000);
 //				wait(10000);
 				try {
-					((GANode)Tools.getNodeByID(this.ID)).wait(10000);
+					Tools.appendToOutput("Waiting execution of GA to finish...\n");
+					((GANode)Tools.getNodeByID(this.ID)).wait(5000);
+					
+					//FIXME: then, kill it, and then reinitiate
+					
 				}catch(Exception e){
 					e.printStackTrace();
 				}
+			} else {
+				GANode.executeAG.setCanExecute(true);
 			}
-			GANode.executeAG.setExecuting(true);
+			//GANode.executeAG.setCanExecute(true);
 		}
 		
 //		synchronized ((GANode)Tools.getNodeByID(this.ID)) {
@@ -944,14 +1142,15 @@ public class GANode extends Node {
 		}
 	}
 
-	public void updateNodesSeenBySink(Vertex v){
+	/*public void updateNodesSeenBySink(Vertex v){
 		//this.nodes.get(v.ID).battery = v.battery;
 		//this.nodes.get(key)
-	}
+	}*/
 	
-	public void removeNodesSeenBySink(ArrayList<Vertex> vertices){
+	/*public void removeNodesSeenBySink(ArrayList<Vertex> vertices){
 		for ( Vertex v : vertices ){
-			this.UpNodes.set(v.ID - 1, 0);		//Mark it as dead
+			GANode.UpNodes.set(v.ID - 1, 0);		//Mark it as dead
+			GANode.DisconnectedNodes.set(v.ID - 1, 0);	//Mark it as disconnected
 			this.nodes.remove(v.ID);			//Remove it from nodes
 			debugMsg(" removing vertex " + v.ID + " (1-indexed) from the nodes seen by the sink");
 		}
@@ -984,7 +1183,8 @@ public class GANode extends Node {
 					
 				}
 			}
-	}
+	}*/
+	
 	public void aproximationtree() {
 		MessageSPTTimer msgtree = new MessageSPTTimer( new MSGTREE( 1, this.NextHopSink, this.ID, "Sink" ) );
 		double time = uniformRandom.nextSample();
@@ -1011,6 +1211,7 @@ public class GANode extends Node {
 			}
 			populations = sinalgo.configuration.Configuration.getIntegerParameter( "Population" );
 			generations = sinalgo.configuration.Configuration.getIntegerParameter( "Generations" );
+			preprocessing = sinalgo.configuration.Configuration.getIntegerParameter( "Preprocessing" );
 			objFunction = sinalgo.configuration.Configuration.getIntegerParameter( "Objective" );
 			fFactor = sinalgo.configuration.Configuration.getDoubleParameter( "FFactor" );
 			kFactor = sinalgo.configuration.Configuration.getDoubleParameter( "KFactor" );
@@ -1057,23 +1258,23 @@ public class GANode extends Node {
 			//this.numberOfNodes = Random.numberOfNodes;
 			this.generateEvent = 1;
 			
-			//if (!isGraphConnected())
+			//if (!isGraphConnected())1
 			//	sinalgo.tools.Tools.exit();
 			
 			//this.nodes.add(new Vertex(this.ID, 1, this.getPosition().xCoord, this.getPosition().yCoord, this.getBattery().getEnergy()));
 			//this.nodes.add(new Vertex(this.ID, 1, this.getPosition().xCoord, this.getPosition().yCoord, 0));
 			this.nodes.put(this.ID, new Vertex(this.ID, 1, this.getPosition().xCoord, this.getPosition().yCoord, 0));
 			UpNodes.add(1);
+			DisconnectedNodes.add(1);
 			sendMCI();
 		}else{
 			UpNodes.add(1);
+			DisconnectedNodes.add(1);
 			//this.nodes.add(new Vertex(this.ID, 0, this.getPosition().xCoord, this.getPosition().yCoord, this.getBattery().getEnergy()));
 			//this.nodes.add(new Vertex(this.ID, 0, this.getPosition().xCoord, this.getPosition().yCoord, 0));
 			this.nodes.put(this.ID, new Vertex(this.ID, 0, this.getPosition().xCoord, this.getPosition().yCoord, 0));
 		}
-			
 
-		
 		VerifyBorderNodeTimer borderTimer = new VerifyBorderNodeTimer(this);
 		borderTimer.startAbsolute(1000,this);
 		//if (!isNodeConnected())
@@ -1198,14 +1399,43 @@ public class GANode extends Node {
 		this.send(rm, Tools.getNodeByID(this.NextHopSink));
 		Tools.appendToOutput("Generated RemoveMessage for node " + rm.getNodeID() + "\n");
 	}
-	
-
+		
 	/**
-	 * method called by the DeadNodeGATimer to set a node as dead
-	 * @param iD node ID (1-indexed)
+	 * method called by the DeadNodeRepairGATimer:
+	 * Sends a message to the neighbors; they update their neighbors list. (not actually sending package, just a simplification for ease of coding) 
+	 * The neighbors that have this node as NextHopToSink are marked for being updated
+	 * So when the message reaches the sink it knows which nodes have to be updated.
+	 * @param iD
 	 */
-	public void sendDeadNodeMessage(int iD) {
+	public void broadcastDeadNodeRepairMessage(int iD){
+		this.battery.spend(EnergyMode.SEND);
+		
+		Overheads += 1;
+		//RepairDeadNodeMessage rdnm = new RepairDeadNodeMessage(this.ID);
+		//this.broadcast(rdnm);
+		debugMsg("Broadcasted RepairDeadNodeMessage for " + this.ID , 2);
+		
+		ArrayList<Integer> neighbors = new ArrayList<>();
+		for ( int i=0; i<this.listAll.size(); i++ ){
+			Overheads += 1;
+			GANode neighbor_node = (GANode)Tools.getNodeByID(this.listAll.get(i)); 
+			neighbor_node.battery.spend(EnergyMode.RECEIVE);
+	
+			if ( neighbor_node.listAll.contains(this.ID) ){
+				neighbor_node.listAll.removeFirstOccurrence(this.ID);
+				//neighbor_node.listAll.remove(this.ID);
+			}
+				
+			if ( neighbor_node.NextHopSink == this.ID ){
+				neighbor_node.battery.spend(EnergyMode.SEND);
+				//MessageSPTTimer routeTimer = new MessageSPTTimer(rrm, Tools.getNodeByID( this.NextHopSink ));
+				//routeTimer.startRelative(0.001, this);
+				Overheads += 1;
+				neighbors.add(this.listAll.get(i));
+			}
+		}
 		DeadNodeMessage dnm = new DeadNodeMessage(iD, this.battery.getEnergy());
+		dnm.setNeighbors(neighbors);
 		this.send(dnm, Tools.getNodeByID(this.NextHopSink));
 		debugMsg("Generated DeadNodeMessage for " + dnm.getNodeID() + ", started its tranmission to the sink" , 2);
 	}
@@ -1277,7 +1507,7 @@ public class GANode extends Node {
 	 */
 	public void SendDataEvent(Message msg, int sender){
 		GADataMessage mdata = (GADataMessage) msg;
-
+		
 		if(this.ID == mdata.getDest()){
 			if (!this.filhos.contains((Object)sender)){
 				this.filhos.add(sender);
@@ -1313,6 +1543,7 @@ public class GANode extends Node {
 					mdata.setDest(this.NextHopSink);
 					mdata.setSender(this.ID);
 					mdata.setHopToSink(this.HopToSink);
+					mdata.accumDTime();
 					//mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getEnergy()));
 					mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getTotalSpentEnergy()));
 					MessageSPTTimer msgTimer = new MessageSPTTimer(mdata,Tools.getNodeByID(this.NextHopSink));
@@ -1339,6 +1570,7 @@ public class GANode extends Node {
 					mdata.setDest(this.NextHopSink);
 					mdata.setSender(this.ID);
 					mdata.setHopToSink(this.HopToSink);
+					mdata.accumDTime();
 					//System.out.println(this.ID + " RX: "+mdata.getPayload());
 					//mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getEnergy()));
 					mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getTotalSpentEnergy()));
@@ -1373,8 +1605,10 @@ public class GANode extends Node {
 				//packetrecvagg = packetrecvagg + mdata.getAggPacket();
 				Tools.appendToOutput("SendDataEvent(): GADataMessage arrived to the SINK, Receivers: " +this.Recivers +"\n");
 				Tools.appendToOutput("SendDataEvent(): Updated energies: " + mdata.getPayload()+"\n");
+//				debugMsg("delivery time: "+ (Global.currentTime - mdata.getDeliveryTime()));
+				debugMsg("delivery time: "+ mdata.getDeliveryTime() );
 				//For handling energies
-				if (objFunction==2 ||objFunction==3 ){
+				if ( objFunction==2 ||objFunction==3 ){
 					boolean run = false;
 					String[] energies = mdata.getPayload().toString().split(";");
 					int reqNode = 0;
@@ -1410,10 +1644,13 @@ public class GANode extends Node {
 							v.pbattery = Double.parseDouble(nb[1]);
 						}
 						v.battery = Double.parseDouble(nb[1]);
-						debugMsg("updatingBattery: objFunction=1, new value of battery " + v.battery + "(" + nodes.get(Integer.parseInt(nb[0])).battery +")" + " for node " + Integer.parseInt(nb[0]));
+						//debugMsg("updatingBattery: objFunction=1, new value of battery " + v.battery + "(" + nodes.get(Integer.parseInt(nb[0])).battery +")" + " for node " + Integer.parseInt(nb[0]));
 					}
 					if ( run ){
-						PrintGAInput(-1, new ArrayList<Integer>(), true);
+						PrintGAInput(-1, new ArrayList<Integer>(), true); 	//Don't run the algorithm on variation, since it wont influence the 
+																			//routing tree at all. It will only affect if the variation makes the
+																			//node die, but such situation is already handled by the spend method  
+																			//of SimpleEnergy.java
 //						runGAAlgorithm(reqNode, 3, new ArrayList<Integer>());	
 					}
 
@@ -1515,11 +1752,19 @@ public class GANode extends Node {
 	@Override
 	public void postStep() {
 		// TODO Auto-generated method stub
+		System.out.println("postStep " + this.ID + " energy: "+ this.battery.getEnergy());
 	}
 
 	@Override
 	public void preStep() {
 		// TODO Auto-generated method stub
+		System.out.println("preStep");
+		for ( sinalgo.nodes.timers.Timer t : this.getTimers() ){
+			if ( t.getFireTime() < Global.currentTime ){
+				System.out.println("-------------------------------------------");
+				System.out.println("NOT FIRED");
+			}
+		}
 	}
 
 	@Override
@@ -1593,7 +1838,6 @@ public class GANode extends Node {
 		MessageSPTTimer mcimsg = new MessageSPTTimer( new MCIMessage( this.HopToSink, this.ID) );
 		mcimsg.startRelative( 0.001, this );
 		Overheads = Overheads + 1;
-
 	}
 
 	public void sendData() {
@@ -1625,7 +1869,7 @@ public class GANode extends Node {
 			this.timerTREE.tnoStartRelative( DataRate, this, TNO.MONITORING );
 			//Message mdata = new GADataMessage( this.ID, this.NextHopSink, "Sink", this.HopToSink );
 			//Message mdata = new GADataMessage( this.ID, this.NextHopSink, new StringBuffer(this.ID + "," + this.battery.getEnergy()), this.HopToSink );
-			Message mdata = new GADataMessage( this.ID, this.NextHopSink, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.HopToSink );
+			Message mdata = new GADataMessage( this.ID, this.NextHopSink, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.HopToSink , 0.0d);
 			MessageSPTTimer msgTimer = new MessageSPTTimer( mdata, Tools.getNodeByID( this.NextHopSink ) );
 			msgTimer.startRelative( DataRate, this );
 			// Tools.appendToOutput( "SData :" + this.ID + "\n" );
@@ -1713,12 +1957,33 @@ public class GANode extends Node {
 		float min = this.battery.getEnergy();
 		int node = this.ID;
 		for (Node n : Tools.getNodeList()){
-			if (min>((GANode)n).getBattery().getEnergy() && this.ID!=1 && !this.terminals.contains(n.ID-1) ){	//Not counting terminals!
+			if (min>((GANode)n).getBattery().getEnergy() && this.ID!=1 && !GANode.terminals.contains(n.ID-1) && GANode.UpNodes.get(n.ID-1)==1){	//Not counting terminals!
 				min = ((GANode)n).getBattery().getEnergy();
 				node = n.ID;
 			}
 		}
 		Tools.appendToOutput("Node "+node+" has the lower residual energy of "+min+"\n");
+	}
+	
+	@NodePopupMethod(menuText="DeadDisconnectedNodes")
+	public void listDeadAndDisconnected(){
+		Tools.appendToOutput("Dead nodes: ");
+		for(int i=0; i<GANode.UpNodes.size(); i++)
+			if ( GANode.UpNodes.get(i) == 0 )	//Dead Node!
+				Tools.appendToOutput((i+1) + " ");
+		Tools.appendToOutput("\n");
+		Tools.appendToOutput("Disconnected nodes: ");
+		for(int i=0; i<GANode.DisconnectedNodes.size(); i++)
+			if ( GANode.DisconnectedNodes.get(i) == 0) //Disconnected node!
+				Tools.appendToOutput((i+1) + " ");
+		Tools.appendToOutput("\n");
+	}
+	
+	@NodePopupMethod(menuText="eventQueue")
+	public void debugEventQueue() {
+		System.out.println("-------------------------------------------");
+//		System.out.println("EventQueue Size: " + Tools.getEventQueue().size() + " time " + Tools.getEventQueue().getNextEvent().time);
+		System.out.println("-------------------------------------------");
 	}
 
 	public SimpleEnergy getBattery() {
