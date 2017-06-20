@@ -181,9 +181,16 @@ public class CustomGlobal extends AbstractCustomGlobal{
 			if ( HCCRFDNode.DisconnectedNodes.get(i) == 0 && HCCRFDNode.terminals.contains(i) )
 				disconnectedterminals++;
 		}
-			
+		
+//		if ( HCCRFDNode.Edges <= 1 ){
+//			HCCRFDNode.Edges = 0;
+//			for ( Node n : Tools.getNodeList() ){
+//				if ( ((HCCRFDNode)n).have_retransmitted == true )
+//					HCCRFDNode.Edges++;
+//			}
+//			HCCRFDNode.Edges += HCCRFDNode.terminals.size();
+//		}
 		if(HCCRFDNode.Edges>1){
-			List<String> listtree = new ArrayList<String>(); 
 			HCCRFDNode.HCCRFD.logln( 
 				HCCRFDNode.EventsTimes+ "\t"
 				+ HCCRFDNode.EventsAmount +"\t" //Numero de eventos (x)			     
@@ -194,7 +201,7 @@ public class CustomGlobal extends AbstractCustomGlobal{
 				+ HCCRFDNode.DataPackets+"\t"
 				+ HCCRFDNode.Notifications+"\t"
 				+ (HCCRFDNode.DataPackets- HCCRFDNode.Notifications)+"\t"
-				+ HCCRFDNode.Edges+"\t"
+				+ HCCRFDNode.Edges / HCCRFDNode.n_rnd +"\t"			//Average tree size
 				+ HCCRFDNode.EventSize + "\t"
 				//+ 0+"\t"
 				+ HCCRFDNode.Density+"\t"
@@ -202,9 +209,9 @@ public class CustomGlobal extends AbstractCustomGlobal{
 				+ ((HCCRFDNode.Overheads+HCCRFDNode.DataPackets))+"\t"
 				+ "HCCRFD" + "\t"
 				+ HCCRFDNode.n_rnd + "\t"
+//				+ HCCRFDNode.p	+ "\t"
 				//+ " TreeOptimized size " 
 				//+ this.treeOptimized.size() + "\t"
-				+ listtree.size() + "\t"
 //				+ "listTree size " + this.listTree.size() + "\t"
 				//+ "numTrees " 
 				+ upnodes + "\t"			//Number of up nodes (alive)

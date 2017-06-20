@@ -1,6 +1,7 @@
 package sinalgo.models.EnergyModel.simple;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Timer;
@@ -217,6 +218,7 @@ public class SimpleEnergy implements IEnergy {
 			}
 		}else if (Tools.getNodeByID(nodeID) instanceof SPTNode){
 			if ( getEnergy() < this.minEnergy && !SPTNode.terminals.contains(this.nodeID-1) ){
+//			if ( getEnergy() <= 0.1 && !SPTNode.terminals.contains(this.nodeID-1) ){
 				if ( !((SPTNode)Tools.getNodeByID(this.nodeID)).isDead() ){
 					
 					RepairDeadNodeSPTTimer rdnt = new RepairDeadNodeSPTTimer((SPTNode)Tools.getNodeByID(nodeID));
@@ -234,13 +236,49 @@ public class SimpleEnergy implements IEnergy {
 		}else if (Tools.getNodeByID(nodeID) instanceof DDAARPNode ){
 			;
 		}else if (Tools.getNodeByID(nodeID) instanceof HCCRFDNode ){
-			if ( getEnergy() < this.minEnergy && !HCCRFDNode.terminals.contains(this.nodeID-1) ){
+//			if ( getEnergy() < this.minEnergy && !HCCRFDNode.terminals.contains(this.nodeID-1) ){
+			if ( getEnergy() <= 0.1 && !HCCRFDNode.terminals.contains(this.nodeID-1) ){
 				if ( !((HCCRFDNode)Tools.getNodeByID(this.nodeID)).isDead() ){
-					RepairDeadNodeHCCRFDTimer rdnt = new RepairDeadNodeHCCRFDTimer((HCCRFDNode)Tools.getNodeByID(nodeID));
-					rdnt.startRelative(0.5,  Tools.getNodeByID(nodeID));
+					HCCRFDNode n = (HCCRFDNode)Tools.getNodeByID(this.nodeID);
+					RepairDeadNodeHCCRFDTimer rdnt = new RepairDeadNodeHCCRFDTimer(n);
+					rdnt.startRelative(0.5,  n);
 					
-					((HCCRFDNode)Tools.getNodeByID(this.nodeID)).setDead(true);
+					n.setDead(true);
+					
+					/*****************************************************************
+					 * This should not be here!!!
+					 */
+					System.out.println(">>> distribued " + nodeID + " reported itself as dead with battery of " + getEnergy());
+					ArrayList<Integer> neighbors = new ArrayList<>();
+					for ( int i=0; i<n.listAll.size(); i++ ){
+						HCCRFDNode neighbor_node = (HCCRFDNode)Tools.getNodeByID(n.listAll.get(i)); 
+//						neighbor_node..spend(EnergyMode.RECEIVE);
+				
+						if ( neighbor_node.listAll.contains(nodeID) ){
+							neighbor_node.listAll.removeFirstOccurrence(nodeID);
+							//neighbor_node.listAll.remove(this.ID);
+						}
+						int d = 0;
+						if ( neighbor_node.my_ch == -1 ) //I am CH
+							d = neighbor_node.FNS(1);
+						else
+							d = neighbor_node.FNS(neighbor_node.my_ch);
+//						if ( neighbor_node.NextHopSink == this.ID ){
+						if ( d == nodeID ){
+//							neighbor_node.battery.spend(EnergyMode.SEND);
+//							Overheads += 1;
+							neighbors.add(n.listAll.get(i));
+						}
+					}
+					((HCCRFDNode)Tools.getNodeByID(1)).updateConnectedComponents(neighbors);
+					/******************************************************************
+					 * This should not be here!!!
+					 */
 				}
+			}
+			if ( getEnergy()<= 0 && this.nodeID!=1 ){ //Validates if there is no more energy
+//				Tools.removeNode(Tools.getNodeByID(this.nodeID));
+//				Tools.removeNode(n);
 			}
 		}
 		

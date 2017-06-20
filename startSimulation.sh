@@ -85,6 +85,8 @@ function exec_simulation()
 			nodeType="DST:DSTNode"
 		elif [ $project == "GA" ]; then
 			nodeType="GA:GANode"
+		elif [ $project == "HCCRFD" ]; then
+			nodeType="HCCRFD:HCCRFDNode"
 		fi
 
 	
@@ -211,7 +213,7 @@ function scenario8(){
 function scenario9(){
 	echo "#scenario9: random event init times $1 $2" >> .cmdfile
 	ne="6"
-	n="4096"
+	n="512"
 	density="10 20 30 40"
 	for den in $density
 	do
@@ -227,9 +229,9 @@ function scenario9(){
 function scenarios(){
 	a="$1"
 	seed=$2
-	#scenario1 "$a" $seed 	#THIS ONE
+	scenario1 "$a" $seed 	#THIS ONE
 	#scenario2 "$a" $seed
-	#scenario3 "$a" $seed	# AND THIS
+	scenario3 "$a" $seed	# AND THIS
 	#scenario4 "$a" $seed
 	#scenario5 "$a" $seed
 	#scenario6 "$a" $seed
@@ -240,13 +242,14 @@ function scenarios(){
 function show_help()
 {
 cat <<"HELP"
-Use: ./simulation.sh -r <number_of_rounds> [-s] [-i] [-d] [-D] [-S] [-g] [-t <seeds_file>]
+Use: ./simulation.sh -r <number_of_rounds> [-s] [-i] [-d] [-D] [-S] [-g] [-H] [-t <seeds_file>]
 	-s	for SPT
 	-i	for Infra
 	-d	for DAARP
 	-D	for DDAARP
 	-S	for DST
 	-g	for GA
+	-H	for HCCRFD
 	-t	for a list of seeds instead of random seeds. The file has one seed per line. When this option
 		is activated, it overrides the number_of_rounds to the number of seed given in the file
 
@@ -275,11 +278,12 @@ daarp=0;
 ddaarp=0;
 dst=0;
 ga=0;
+hccrfd=0;
 rounds=30;
 seeds_file="";
 nevents=6;
 listevent=0;
-while getopts "r:e:EsidDSgc:ht:" opt;
+while getopts "r:e:EsidDSgHc:ht:" opt;
 do
 	case $opt in
 		s)
@@ -305,6 +309,10 @@ do
 		g)
 			echo "runnig simulation for GA"
 			ga=1;
+			;;
+		H)
+			echo "running simulation for HCCRFD"
+			hccrfd=1;
 			;;
 		r)
 			rounds=$OPTARG;
@@ -371,6 +379,10 @@ fi
 if [ $ga -eq 1 ]
 then
 	alg="${alg} GA"
+fi
+if [ $hccrfd -eq 1 ]
+then
+	alg="${alg} HCCRFD"
 fi
 
 if [ "$seeds_file" == "" ]; then

@@ -1,9 +1,10 @@
-package projects.HCCRFD.nodes.nodeImplementations;
+	package projects.HCCRFD.nodes.nodeImplementations;
 
 import java.awt.Color;
 import java.awt.Graphics;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,6 +38,7 @@ import projects.HCCRFD.nodes.timers.RepairDeadNodeTimer;
 import projects.HCCRFD.nodes.timers.HCCRFDTimer;
 import projects.HCCRFD.nodes.timers.VerifyBorderNodeTimer;
 import projects.HCCRFD.utils.NN_TableItem;
+import projects.SPT.nodes.nodeImplementations.SPTNode.Roles;
 import sinalgo.configuration.Configuration;
 import sinalgo.configuration.CorruptConfigurationEntryException;
 import sinalgo.configuration.WrongConfigurationException;
@@ -114,14 +116,18 @@ public class HCCRFDNode extends Node {
 	}
 
 	private enum Status {
-		MONITORING,
-		READY
+		MONITORING,		//if detected an event
+		READY,			//alive and ready to transmit!
+		RELAY,			//node that agregates data
+		DEAD,			//with no battery left
+		DISCONNECTED,	//alive but disconnected from sink
 	};
 
 	public enum Roles {
 		SINK,
-		COLLABORATOR,	//names: source node, node that detected an event
-		RELAY,
+//		COLLABORATOR,	//names: source node, node that detected an event
+//		RELAY,
+		UNSET,
 		CH,
 		CM
 	};
@@ -153,7 +159,7 @@ public class HCCRFDNode extends Node {
 	private static int enviados = 0;
 
 	/* Captura dos vizinhos e Feedback */
-	private LinkedList<Integer> listAll = new LinkedList<Integer>();	//A list containing the IDs of ALL the neighbor nodes, 1-indexed
+	public LinkedList<Integer> listAll = new LinkedList<Integer>();	//A list containing the IDs of ALL the neighbor nodes, 1-indexed
 	//private Map<Node, LinkedList<Integer>> mapNeibohrs = new HashMap<Node, LinkedList<Integer>>();
 	public static HashMap<Node, LinkedList<Integer>> mapVizinhosLocal = new HashMap<Node, LinkedList<Integer>>();
 	private int childrenNodes = 0;
@@ -194,6 +200,7 @@ public class HCCRFDNode extends Node {
 	public static double Eavg;									//Average energy of the network
 	public ArrayList<NN_TableItem> NN_Table;					//Table with the neighbors information
 	public boolean is_configured = false;						//boolean flag telling if the node is configured, or not.
+	public boolean have_retransmitted = false;					//boolean flag for counting the number of nodes in the tree.
 	public int my_ch = -1;										//id of the CH, -1 if the node is a CH itself
 	public ArrayList<Integer> CMs = new ArrayList<>();			//List of nodes that are member of this cluster, empty if this is a CM
 	public static ArrayList<Integer> CHs = new ArrayList<>();	//List of CHs, cleaned at each round 1-indexed
@@ -213,13 +220,17 @@ public class HCCRFDNode extends Node {
 		// TODO Auto-generated method stub
 		int sender;
 		
-		if ( HCCRFDNode.UpNodes.get(this.ID-1)== 0 )	// The nodes just process the packets as long as they are awake (have energy) 
+		if ( HCCRFDNode.DisconnectedNodes.get(this.ID-1)== 0 || HCCRFDNode.UpNodes.get(this.ID-1)==0 || getBattery().getEnergy()<= 0 )	// The nodes just process the packets as long as they are awake (have energy) 
 			return;
 		
 		while ( inbox.hasNext() ) {
 			Message msg = inbox.next();
 			sender = inbox.getSender().ID;
 			battery.spend(EnergyMode.RECEIVE);
+			
+//			if ( this.ID == 120 && Tools.get){
+//				
+//			}
 			
 			// Sink start the flooding of HelloMessage for initial configuration 
 			if ( msg instanceof HelloMessage ) {
@@ -264,18 +275,20 @@ public class HCCRFDNode extends Node {
 			/*if ( msg instanceof MSGTREE ) { //I guess this is not necessary since the sink has the last computed routing tree.
 				GetRoutingTree(msg);
 			}
-
-			
 			
 			if (msg instanceof SetRepairRouteMessage){	//Message to set repair (fix) the route of the nodes that became orphan
 				SetRepairRoute(msg);
 			}*/
+			
+			if (msg instanceof MSGTREE){
+				GetRoutingTree(msg);	
+			}
 		}
 	}
 
 	private void SetHopCount(Message msg) {
 		HCCRFDInformHopCount m = (HCCRFDInformHopCount)msg;
-		if ( !this.rfd_is_configured ){		//process only if the node haven't been configured yet
+		if ( !this.rfd_is_configured && HCCRFDNode.DisconnectedNodes.get(this.ID-1)==1 ){		//process only if the node haven't been configured yet
 			if ( this.my_ch != -1 ){		//I am CM
 				if ( m.getBase_id() == this.my_ch ){	//Only process the packets from my CH
 					this.rfd_is_configured = true;
@@ -352,7 +365,7 @@ public class HCCRFDNode extends Node {
 	 * otherwise use the RFD logic by choosing the node with higher probability p_ij
 	 * @return
 	 */
-	private int FNS(int dest){
+	public int FNS(int dest){
 		float E_t = (float) (0.2*getBattery().getInitialEnergy());	//Threshold of 20%
 		if ( getBattery().getEnergy() < E_t ){	
 			;//setAsDead();
@@ -564,8 +577,18 @@ public class HCCRFDNode extends Node {
 			for ( Integer i : DisconnectedNodes )
 				dn += i;
 			debugMsg(">>> SINK number of connected nodes " + dn);
+			
+			/*debugMsg("Reconfiguring due to DeadNode");
+			if ( CHs.contains(dnm.getNodeID())){	//Only reconfigure if it a CH
+				GenConfigurationTimer ctimer = new GenConfigurationTimer();
+				ctimer.startRelative(0.1, this);
+			}*/
+			
 		}else{
-			send(dnm, Tools.getNodeByID(this.NextHopSink));
+			if ( this.my_ch == -1 )	//I am CH
+				send(dnm, Tools.getNodeByID(FNS(1)));
+			else
+				send(dnm, Tools.getNodeByID(FNS(this.my_ch)));
 			battery.spend(EnergyMode.SEND);
 			Overheads+=1;
 			debugMsg("node " + this.ID + " retransmitting DeadNodeMessage for node " + dnm.getNodeID() + " list of reconfiguring nodes " + dnm.getNeighbors());
@@ -1034,7 +1057,8 @@ public class HCCRFDNode extends Node {
 	}*/
 	
 	public void aproximationtree() {
-		MessageSPTTimer msgtree = new MessageSPTTimer( new MSGTREE( 1, this.NextHopSink, this.ID, "Sink" ) );
+//		MessageSPTTimer msgtree = new MessageSPTTimer( new MSGTREE( 1, this.NextHopSink, this.ID, "Sink" ) );
+		MessageSPTTimer msgtree = new MessageSPTTimer( new MSGTREE( 1, FNS(1), this.ID, "Sink" ) );
 		double time = uniformRandom.nextSample();
 		msgtree.startRelative( time, this );
 	}
@@ -1042,7 +1066,7 @@ public class HCCRFDNode extends Node {
 	@Override
 	public void init() {
 		// TODO Auto-generated method stub
-		myRole = Roles.RELAY;
+		myRole = Roles.UNSET;
 		// double endTime=0;
 		try {
 			SimulationTime = sinalgo.configuration.Configuration.getDoubleParameter( "SimTime" );
@@ -1105,6 +1129,7 @@ public class HCCRFDNode extends Node {
 			last_round_ch.add(-30);
 			sendMCI();
 			
+			
 			GenConfigurationTimer ctimer = new GenConfigurationTimer();
 			ctimer.startRelative(1999, this);
 			
@@ -1133,6 +1158,15 @@ public class HCCRFDNode extends Node {
 
 
 	public void ReconfigHCCRFD(){
+		int edges = 0;
+		for ( Node n : Tools.getNodeList() ){
+			if ( ((HCCRFDNode)n).have_retransmitted == true )
+				edges++;
+		}
+		//if ( HCCRFDNode.Edges < edges)
+		HCCRFDNode.Edges += edges;
+		HCCRFDNode.Edges += HCCRFDNode.terminals.size();
+		
 		//Cluster selection and formation
 		ClusterFormationTimer chtimer = new ClusterFormationTimer(); 
 //		chtimer.startAbsolute(1500, this);
@@ -1236,8 +1270,13 @@ public class HCCRFDNode extends Node {
 				neighbor_node.listAll.removeFirstOccurrence(this.ID);
 				//neighbor_node.listAll.remove(this.ID);
 			}
-				
-			if ( neighbor_node.NextHopSink == this.ID ){
+			int d = 0;
+			if ( neighbor_node.my_ch == -1 ) //I am CH
+				d = FNS(1);
+			else
+				d = FNS(neighbor_node.my_ch);
+//			if ( neighbor_node.NextHopSink == this.ID ){
+			if ( d == this.ID ){
 				neighbor_node.battery.spend(EnergyMode.SEND);
 				//MessageSPTTimer routeTimer = new MessageSPTTimer(rrm, Tools.getNodeByID( this.NextHopSink ));
 				//routeTimer.startRelative(0.001, this);
@@ -1247,7 +1286,8 @@ public class HCCRFDNode extends Node {
 		}
 		DeadNodeMessage dnm = new DeadNodeMessage(iD, this.battery.getEnergy());
 		dnm.setNeighbors(neighbors);
-		this.send(dnm, Tools.getNodeByID(this.NextHopSink));
+		//this.send(dnm, Tools.getNodeByID(this.NextHopSink));
+		this.send(dnm, Tools.getNodeByID(FNS(1)));
 		debugMsg("Generated DeadNodeMessage for " + dnm.getNodeID() + ", started its tranmission to the sink" , 2);
 	}
 	
@@ -1263,14 +1303,8 @@ public class HCCRFDNode extends Node {
 	 */
 	public void GetRoutingTree(Message msg){
 		MSGTREE msgtree = (MSGTREE) msg;
-		if ( this.ID == 1 ) {
+		if ( this.ID == 1 ) 
 			System.out.println( "MSGTREE nextHop " + msgtree.getNexthop() + " destino " + msgtree.getDest() );
-			//////////////////////////////######################################
-			//this.Edges = CustomGlobal.treeOptimized.size() ;
-			List<String> tree = new ArrayList<String>();
-			this.Edges = tree.size();
-			//PrintResult.print();
-		}
 		if ( this.ID == msgtree.getNexthop() ) {
 			this.filhosrecv.add( msgtree.getSentnode() );
 
@@ -1278,14 +1312,15 @@ public class HCCRFDNode extends Node {
 				this.setColor( Color.yellow );
 				this.Disttree = this.Disttree + msgtree.getDisttree();
 				this.Disttreerecv = this.Disttreerecv + 1;
-
+				int n = FNS(1);
 				if ( this.filhos.size() == 1 ) {
-					this.filhossend.add( this.NextHopSink );
-					broadcast( new MSGTREE( this.Disttree + 1, this.NextHopSink, this.ID ) );
+					
+					this.filhossend.add( n );
+					broadcast( new MSGTREE( this.Disttree + 1, n, this.ID ) );
 					this.setColor( Color.black );
 				} else if ( this.filhos.size() == this.Disttreerecv ) {
-					broadcast( new MSGTREE( this.Disttree + 1, this.NextHopSink, this.ID ) );
-					this.filhossend.add( this.NextHopSink );
+					broadcast( new MSGTREE( this.Disttree + 1, n, this.ID ) );
+					this.filhossend.add( n );
 					this.setColor( Color.white );
 				}
 
@@ -1302,6 +1337,7 @@ public class HCCRFDNode extends Node {
 						Edges = this.Disttree;
 					}
 				}
+				Edges = this.Disttree + 1;
 			}
 		}
 	}
@@ -1311,85 +1347,166 @@ public class HCCRFDNode extends Node {
 	 */
 	public void clusterFormation(){
 		// Round initialization: cleaning previous cluster information
-		ArrayList<Integer> order = new ArrayList<>();
-//		bfsRFD(0, order);
-//		System.out.print(" == order: ");
-//		for(int i=0; i<order.size(); i++ )
-//			System.out.print( order.get(i) + " " );
-//		System.out.println();
+//		ArrayList<Integer> order = new ArrayList<>();
+//		ArrayList<Integer> order = new ArrayList<>(Collections.nCopies(AdjList.length, 0));
+//				bfsRFD(0, order);
+		//		System.out.print(" == order: ");
+		//		for(int i=0; i<order.size(); i++ )
+		//			System.out.print( order.get(i) + " " );
+		//		System.out.println();
 		float e_factor = 1.0f;
 		boolean transfer = false;
-//		while ( true ){
-			
-//			for ( int i=0; i<order.size(); i++ ){
-//				Node n = Tools.getNodeByID(order.get(i)+1);
-			for ( Node n : Tools.getNodeList() ){
-				((HCCRFDNode)n).is_configured = false;
-				
-				// Since I am not actually exchanging packets for updating the RE and the rnd, then I just "simulate" the exchange by 
-				// spending the battery accordingly
-				if ( !transfer ){
-					((HCCRFDNode)n).getBattery().spend(EnergyMode.RECEIVE);
-					((HCCRFDNode)n).getBattery().spend(EnergyMode.SEND);
-					Overheads +=1 ;
-					transfer = true;
-				}
-				
-				HCCRFDNode.RE.set(n.ID-1, (double)(((HCCRFDNode)n).getBattery().getEnergy()) );
-				HCCRFDNode.rnd.set(n.ID-1, Distribution.getRandom().nextDouble());
-				((HCCRFDNode)n).CMs.clear();						//Clean the CMs of all the nodes, CM might become CH and vice versa
-			}
-			((HCCRFDNode)Tools.getNodeByID(1)).is_configured = true;	//only the sink is always "configured"
-			Eavg = 0;
-			for ( Double b : HCCRFDNode.RE )
-				Eavg += b;
-			Eavg /= HCCRFDNode.RE.size();
-//			HCCRFDNode.round++;								//add one to the rounds
-			float p = 0.1f;//0.25									//probability of being CH
-			float T = p/(1-p*(HCCRFDNode.n_rnd%(1/p)));		//threshold
-			HCCRFDNode.CHs.clear();
-			CHs.add(1);
-			addNeighbors(CHs, order);
-			
-			//ArrayList<Integer> chs = new ArrayList<>();		//selected CHs, 1-indexed
-//			for ( int i=1; i<rnd.size(); i++ ){
-			while ( true ){
-//				System.out.println(CHs.size() + ": " + CHs);
-//				System.out.println(order.size() + ": " + order);
-				for ( int k=0; k<order.size(); k++ ){
-					int i = order.get(k);
-					if ( ( HCCRFDNode.n_rnd - last_round_ch.get(i) >=1/p || isSinkNeighbor(i) ) && T>=rnd.get(i) && RE.get(i)>= Eavg*e_factor && !HCCRFDNode.CHs.contains(i+1)){
-						//				if ( T<=rnd.get(i) && RE.get(i)>= Eavg*e_factor ){
-						HCCRFDNode.CHs.add(i+1);								//node i is CH
-						last_round_ch.set(i, HCCRFDNode.n_rnd) ;
-						break;
-					}
-					if ( HCCRFDNode.CHs.size() >= p*rnd.size() )
-						break;
-				}
+		//		while ( true ){
 
+		//			for ( int i=0; i<order.size(); i++ ){
+		//				Node n = Tools.getNodeByID(order.get(i)+1);
+		for ( Node n : Tools.getNodeList() ){
+			((HCCRFDNode)n).is_configured = false;
+			((HCCRFDNode)n).have_retransmitted = false;
+			// Since I am not actually exchanging packets for updating the RE and the rnd, then I just "simulate" the exchange by 
+			// spending the battery accordingly
+			if ( !transfer ){
+				((HCCRFDNode)n).getBattery().spend(EnergyMode.RECEIVE);
+				((HCCRFDNode)n).getBattery().spend(EnergyMode.SEND);
+				Overheads +=1 ;
+				transfer = true;
+			}
+
+			HCCRFDNode.RE.set(n.ID-1, (double)(((HCCRFDNode)n).getBattery().getEnergy()) );
+			HCCRFDNode.rnd.set(n.ID-1, Distribution.getRandom().nextDouble());
+			((HCCRFDNode)n).CMs.clear();						//Clean the CMs of all the nodes, CM might become CH and vice versa
+		}
+		((HCCRFDNode)Tools.getNodeByID(1)).is_configured = true;	//only the sink is always "configured"
+		Eavg = 0;
+		int c = 0;
+		/*for ( Double b : HCCRFDNode.RE ){
+				if ( b > 0 ){	//Only consider alive nodes
+					Eavg += b;
+					c++;
+				}
+			}*/
+		for( int i=0; i<HCCRFDNode.RE.size(); i++ ){
+			double b = HCCRFDNode.RE.get(i);
+			if ( b > 0 ){	//Only consider alive nodes
+				Eavg += b;
+				c++;
+			}else{
+				Tools.getNodeByID(i+1).setColor(Color.BLACK);
+			}
+
+		}
+		Eavg /= c;
+		//			HCCRFDNode.round++;								//add one to the rounds
+		float p = 0.1f;//0.25									//probability of being CH
+//		float T = p/(1-p*(HCCRFDNode.n_rnd%(1/p)));		//threshold
+		
+		//ArrayList<Integer> chs = new ArrayList<>();		//selected CHs, 1-indexed
+		//			for ( int i=1; i<rnd.size(); i++ ){
+		/*
+		addNeighbors(CHs, order);
+		long startTime = System.currentTimeMillis();
+		long elapsedTime = 0L;
+		
+		while ( true ){
+			//				System.out.println(CHs.size() + ": " + CHs);
+			//				System.out.println(order.size() + ": " + order);
+			for ( int k=0; k<order.size(); k++ ){
+				int i = order.get(k);
+				if ( ( HCCRFDNode.n_rnd - last_round_ch.get(i) >=1/p || isSinkNeighbor(i) ) && T>=rnd.get(i) && RE.get(i)>= Eavg*e_factor && !HCCRFDNode.CHs.contains(i+1)){
+					//				if ( T<=rnd.get(i) && RE.get(i)>= Eavg*e_factor ){
+					HCCRFDNode.CHs.add(i+1);								//node i is CH
+					last_round_ch.set(i, HCCRFDNode.n_rnd) ;
+					break;
+				}
 				if ( HCCRFDNode.CHs.size() >= p*rnd.size() )
 					break;
-				else{
-					addNeighbors(CHs, order);
-					e_factor -= 0.0001;
-					for ( Node n : Tools.getNodeList() )
-						HCCRFDNode.rnd.set(n.ID-1, Distribution.getRandom().nextDouble());
-				}
 			}
-			for( int i=0; i<CHs.size(); i++ )
-				System.out.print(CHs.get(i)-1 +" ");
-			System.out.println();
-			
-//			if ( HCCRFDNode.CHs.size() < p*rnd.size() )
-//				continue;
 
-			
-			
-//			if ( testCHConnectivity() && HCCRFDNode.CHs.size() >=6 )
-//				break;
-//		}
+			if ( HCCRFDNode.CHs.size() >= p*rnd.size() )
+				break;
+			else{
+				addNeighbors(CHs, order);
+				e_factor -= 0.0001;
+				for ( Node n : Tools.getNodeList() )
+					HCCRFDNode.rnd.set(n.ID-1, Distribution.getRandom().nextDouble());
+			}
+			elapsedTime = (new Date()).getTime() - startTime;
+			if ( elapsedTime >= 4000 )
+				break;
+		}*/
 		
+		
+		int times = 0;
+		float T;
+		while (true){
+			HCCRFDNode.CHs.clear();
+			CHs.add(1);
+			T = p/(1-p*(HCCRFDNode.n_rnd%(1/p)));
+			for ( int i=0; i<RE.size(); i++ ){
+//				int i = order.get(k);
+				if ( ( HCCRFDNode.n_rnd - last_round_ch.get(i) >=1/p-2 || isSinkNeighbor(i) ) && 
+						T>=rnd.get(i) && RE.get(i)>= Eavg*e_factor && 
+						!HCCRFDNode.CHs.contains(i+1) && 
+						HCCRFDNode.DisconnectedNodes.get(i)==1 ){
+					//				if ( T<=rnd.get(i) && RE.get(i)>= Eavg*e_factor ){
+					HCCRFDNode.CHs.add(i+1);								//node i is CH
+//					last_round_ch.set(i, HCCRFDNode.n_rnd);
+//					break;
+				}
+//				if ( CHs.size() >= p*RE.size() && testCHConnectivity() )
+//					break;
+			}
+
+
+//			for( int i=0; i<CHs.size(); i++ )
+//				System.out.print(CHs.get(i)-1 +" ");
+//			System.out.println();
+//			if ( CHs.size() >= p*RE.size() && testCHConnectivity() ){
+			if ( testCHConnectivity() ){
+//				System.out.println("CHs (" + CHs.size() + "): " + CHs);
+				break;
+			}
+				//if ( HCCRFDNode.CHs.size() >= p*rnd.size() )
+				//	break;
+			e_factor -= 0.0001;
+			for ( Node n : Tools.getNodeList() )
+				HCCRFDNode.rnd.set(n.ID-1, Distribution.getRandom().nextDouble());
+			times++;
+			if ( times >= 10 ){
+				times = 0;
+				p += 0.01;
+			}
+
+//			System.out.println("--------------------- " + p);
+			if ( p > 1){
+				debugMsg("p "+p,2);
+				Tools.exit();
+			}
+			
+		}
+
+		int dn=0;
+		for (int i=0; i<DisconnectedNodes.size(); i++)
+			dn += DisconnectedNodes.get(i);
+		System.out.print("T:" + T + " p:" + p + " ConnN:" + dn + " CHs (" + CHs.size() + "): "  );
+		
+		
+		for( int i=0; i<CHs.size(); i++ ){
+			System.out.print(CHs.get(i)-1 +" ");
+			last_round_ch.set(CHs.get(i)-1, HCCRFDNode.n_rnd);
+		}
+		
+		System.out.println();
+		debugMsg("p "+p,2);
+		//			if ( HCCRFDNode.CHs.size() < p*rnd.size() )
+		//				continue;
+
+
+
+		//			if ( testCHConnectivity() && HCCRFDNode.CHs.size() >=6 )
+		//				break;
+		//		}
+
 		///////////////////////////////////////////
 		//Deciding cluster membership
 		ArrayList<Integer> cms = new ArrayList<>();
@@ -1399,28 +1516,28 @@ public class HCCRFDNode extends Node {
 				continue;
 			if ( HCCRFDNode.CHs.contains(n.ID) )
 				continue;
-			
+
 			double dmin = 10000;
 			int idx = -1;
 			for (int i=0; i<HCCRFDNode.CHs.size(); i++){
-//				double dx = n.getPosition().xCoord - Tools.getNodeByID(HCCRFDNode.CHs.get(i)).getPosition().xCoord ;
-//				double dy = n.getPosition().yCoord - Tools.getNodeByID(HCCRFDNode.CHs.get(i)).getPosition().yCoord ;
-//				double d = Math.sqrt( Math.pow(dx, 2) + Math.pow(dy, 2) );
+				//				double dx = n.getPosition().xCoord - Tools.getNodeByID(HCCRFDNode.CHs.get(i)).getPosition().xCoord ;
+				//				double dy = n.getPosition().yCoord - Tools.getNodeByID(HCCRFDNode.CHs.get(i)).getPosition().yCoord ;
+				//				double d = Math.sqrt( Math.pow(dx, 2) + Math.pow(dy, 2) );
 				double d = getDist(HCCRFDNode.CHs.get(i), n.ID);
 				if ( dmin > d ){
 					dmin = d;
 					idx = HCCRFDNode.CHs.get(i);
 				}
 			}
-			
+
 			cms.add(n.ID);
 			cmch.add(idx);
 		}
 		///////////////////////////////////////////
-		
+
 		MessageBroadcastCHID mb = new MessageBroadcastCHID(HCCRFDNode.CHs, cms, cmch);
 		broadcast(mb);		//if this doesn't work, use a timer
-		
+
 		for ( Node n : Tools.getNodeList() ){
 			// Since I am not actually exchanging packets for updating the JOIN_ACCEPT and the JOIN_REQUEST, then I just "simulate" the exchange by 
 			// spending the battery accordingly, although each CM sends only one JOIN_REQUEST and receives only one JOIN_ACCEPT
@@ -1433,9 +1550,14 @@ public class HCCRFDNode extends Node {
 			((HCCRFDNode)n).getBattery().spend(EnergyMode.SEND);
 			Overheads += 1;
 		}
-		
+
 	}
 
+	/**
+	 * 
+	 * @param i node to be tested as neighbor (0-indexed)
+	 * @return
+	 */
 	private boolean isSinkNeighbor(int i) {
 		for( int j=0; j<AdjList[0].size(); j++ ){
 			int u = AdjList[0].get(j);
@@ -1460,13 +1582,15 @@ public class HCCRFDNode extends Node {
 				int v = AdjList[u].get(i);
 				if ( !CHs.contains(v+1) )
 					continue;
+				if (HCCRFDNode.DisconnectedNodes.get(v)==0)//if it's disconnected is ignored
+					continue;
 				if ( !visited.get(v) ) {
 					visited.set(v, true);
 					q.add(v);
 				}
 			}
 		}
-		
+			
 		for ( int i=0; i<visited.size(); i++ ){
 			if ( !CHs.contains(i+1) )
 				continue;
@@ -1475,30 +1599,6 @@ public class HCCRFDNode extends Node {
 		}
 		return true;
 	}
-
-	/**
-	 * NOT USED
-	 * Starts the RFDMRP
-	 * @param s source node 
-	 * @param d destiny node, if this is sink then it's inter-cluster routing otherwise this is a CH
-	 */
-	public void startRFDMRP(int s, int d){
-		//@param type 1: (intracluster) CM-CH, 2: (intercluster) CH-SINK
-		int type = 0;
-		if ( d == 1 )
-			type = 2;
-		else
-			type = 1;
-		int n = RFDn_regions(type);
-		
-		NN_table_creation(s, d);
-		/*if ( this.ID == 1 ){ //Intercluster: between CHs, there might be 
-			
-		}else{	//Intracluster: CMs routing to the CH
-			
-		}*/
-	}
-	
 
 	public void NNCreateTable() {
 		for ( Node node : Tools.getNodeList() ){
@@ -1512,6 +1612,9 @@ public class HCCRFDNode extends Node {
 				HCCRFDNode v = (HCCRFDNode) e.endNode ;
 				if ( v == u )
 					v = (HCCRFDNode) e.startNode;
+
+				if ( HCCRFDNode.DisconnectedNodes.get(v.ID-1)==0 )	//Don't consider disconnected nodes
+					continue;
 				
 				if ( u.my_ch == -1 ){	//I am CH, so my table is only of other CHs
 					if ( v.my_ch != -1 )
@@ -1527,38 +1630,6 @@ public class HCCRFDNode extends Node {
 					dn = getDist(1, this.ID);
 				else
 					dn = getDist(u.my_ch, this.ID);
-				NN_TableItem it = new NN_TableItem(v.ID, v.hop_count, v.getBattery().getEnergy(), ds, dn);
-				u.NN_Table.add(it);
-				
-			}
-		}
-	}
-
-	private void NN_table_creation(int source_node, int destiny_node) {
-		// Computing the NN_Table for each node does not depend whether it's intra or inter cluster communication
-		
-		for ( Node node : Tools.getNodeList() ){
-			HCCRFDNode u = (HCCRFDNode)node;
-			u.getBattery().spend(EnergyMode.RECEIVE);
-			u.getBattery().spend(EnergyMode.SEND);
-			
-			u.NN_Table.clear();
-			
-			for ( Edge e : u.outgoingConnections ){
-				HCCRFDNode v = (HCCRFDNode) e.endNode ;
-				if ( v == u )
-					v = (HCCRFDNode) e.startNode;
-				
-				if ( u.my_ch == -1 ){	//I am CH, so my table is only of other CHs
-					if ( v.my_ch != -1 )
-						continue;
-				}else{					//I am CM, so my table is only of other CMs in my cluster and my CH
-					if ( v.my_ch!=-1 && v.my_ch != u.my_ch )	//neighbors in other cluster aren't considered
-						continue;
-				}
-				
-				float ds = getDist(source_node, this.ID);
-				float dn = getDist(destiny_node, this.ID);
 				NN_TableItem it = new NN_TableItem(v.ID, v.hop_count, v.getBattery().getEnergy(), ds, dn);
 				u.NN_Table.add(it);
 				
@@ -1654,6 +1725,8 @@ public class HCCRFDNode extends Node {
 				visited.set(u, true);
 			
 			for ( int j=0; j<AdjList[u].size(); j++ ){
+				if (HCCRFDNode.DisconnectedNodes.get(j)==0 )	//Don't consider disconnected nodes
+					continue;
 				int v = AdjList[u].get(j);
 				visited.set(v, true);
 				neighbors.add(v);
@@ -1729,7 +1802,8 @@ public class HCCRFDNode extends Node {
 
 				if(Global.currentTime > this.nextsenddata)
 					this.senddata =true;
-
+				
+				have_retransmitted = true;
 
 				//this.aggregatePCKT = this.aggregatePCKT + mdata.getAggPacket();
 				this.rota = true;
@@ -1740,7 +1814,7 @@ public class HCCRFDNode extends Node {
 				}
 
 				//if ( ( (this.filhos.size()<2) && (this.myRole == Roles.RELAY)) ){
-				if ( ( (this.filhos.size()<2) ) ){
+				if ( ( (this.filhos.size()<2) ) ){	//just retransmit
 					this.battery.spend(EnergyMode.SEND);
 					if (this.battery.getEnergy()<this.battery.getMinEnergy() && !HCCRFDNode.terminals.contains(this.ID-1))
 						debugMsg("***** this should happen few very few packets for node "+ this.ID, 2);
@@ -1754,6 +1828,7 @@ public class HCCRFDNode extends Node {
 					mdata.setDest(dest);
 					mdata.setSender(this.ID);
 					mdata.setHopToSink(this.hop_count);
+					mdata.accumDTime();
 					//mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getEnergy()));
 					mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getTotalSpentEnergy()));
 					MessageSPTTimer msgTimer = new MessageSPTTimer(mdata,Tools.getNodeByID(dest));
@@ -1769,11 +1844,13 @@ public class HCCRFDNode extends Node {
 					Tools.appendToOutput("SendDataEvent(): Datapackets: "+this.DataPackets + "\n");
 					//Spent energy due to the transmission mode
 					
-					if (this.myRole == Roles.RELAY)
+//					if (this.myRole == Roles.RELAY)
+					if ( this.mystatus == Status.RELAY )
 						this.setColor(Color.CYAN);
 					//this.aggregatePCKT = 0;
 				}//else if ((this.senddata) && (this.myRole != Roles.COLLABORATOR)){
-				else if ((this.senddata)){
+				else if ((this.senddata)){	//agregate packet
+					have_retransmitted = true;
 					this.battery.spend(EnergyMode.SEND);
 					if (this.battery.getEnergy()<this.battery.getMinEnergy() && !HCCRFDNode.terminals.contains(this.ID-1))
 						debugMsg("***** this should happen few very few packets for node "+ this.ID, 2);
@@ -1786,6 +1863,7 @@ public class HCCRFDNode extends Node {
 					mdata.setDest(dest);				
 					mdata.setSender(this.ID);
 					mdata.setHopToSink(this.hop_count);
+					mdata.accumDTime();
 					//System.out.println(this.ID + " RX: "+mdata.getPayload());
 					//mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getEnergy()));
 					mdata.setPayload(new StringBuffer(mdata.getPayload()+";" + this.ID +","+this.battery.getTotalSpentEnergy()));
@@ -1820,7 +1898,7 @@ public class HCCRFDNode extends Node {
 				//packetrecvagg = packetrecvagg + mdata.getAggPacket();
 				Tools.appendToOutput("SendDataEvent(): HCCRFDDataMessage arrived to the SINK, Receivers: " +this.Recivers +"\n");
 				Tools.appendToOutput("SendDataEvent(): Updated energies: " + mdata.getPayload()+"\n");
-				debugMsg("delivery time: "+ (Global.currentTime - mdata.getTimestamp()));
+				debugMsg("delivery time: "+ mdata.getDeliveryTime() );
 //				debugMsg("delivery time: "+ mdata.ge);
 				
 			}
@@ -1875,15 +1953,17 @@ public class HCCRFDNode extends Node {
 
 	@NodePopupMethod( menuText = "Exibir Tabela" )
 	public void myaggDist() {
-		Tools.appendToOutput( "HopToSink: " + this.hop_count + "\n" + "NextHopSink: " + this.NextHopSink + "\n" + "OwnerID:" + this.ownerID + "\n" );
+		Tools.appendToOutput( "HopToSink: " + this.hop_count + "\n" + "NextHopSink: " + FNS(1) + "\n" + "OwnerID:" + this.ownerID + "\n" );
 		if ( myRole == Roles.CH)
 			Tools.appendToOutput("I am " + myRole + "\n");
 		else if ( myRole == Roles.CM )
 			Tools.appendToOutput("I am " + myRole + " and my CH is " + my_ch + "\n");
 		
-		if ( myRole == Roles.COLLABORATOR && this.my_ch == -1 )	//A CH that detected and event
+//		if ( myRole == Roles.COLLABORATOR && this.my_ch == -1 )	//A CH that detected and event
+		if ( this.my_ch == -1 )	
 			Tools.appendToOutput("I am CH, so inter-cluster routing only is done");
-		else if ( myRole == Roles.COLLABORATOR && this.my_ch != -1 )	//A CM that detected and event
+//		else if ( myRole == Roles.COLLABORATOR && this.my_ch != -1 )	//A CM that detected and event
+		else 
 			Tools.appendToOutput("I am CM, so intra-cluster I reach my CH (" + this.my_ch + ") first.");
 		/*else if ( myRole == Roles.SINK )
 			for( Node n : Tools.getNodeList() )
@@ -1911,7 +1991,7 @@ public class HCCRFDNode extends Node {
 	}
 
 	public void startDetection() {
-		myRole = Roles.COLLABORATOR;
+//		myRole = Roles.COLLABORATOR;
 
 		this.setColor( Color.cyan );
 		// sptLog.logln("Detection t "+(Global.currentTime)
@@ -1952,7 +2032,8 @@ public class HCCRFDNode extends Node {
 
 		this.setColor( Color.orange );
 
-		if ( ( this.myRole == Roles.COLLABORATOR ) && ( this.filhos.size() == 0 ) ) {
+//		if ( ( this.myRole == Roles.COLLABORATOR ) && ( this.filhos.size() == 0 ) ) {
+		if ( this.filhos.size() == 0 ) {
 			this.setColor( Color.RED );
 			
 			/*if(!this.requestedRoute){
@@ -1981,7 +2062,7 @@ public class HCCRFDNode extends Node {
 				d = FNS(this.my_ch);
 			}
 			
-			Message mdata = new HCCRFDDataMessage( this.ID, d, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.hop_count , Global.currentTime);
+			Message mdata = new HCCRFDDataMessage( this.ID, d, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.hop_count , 0.0d);
 //			NN_Table.size();
 			MessageSPTTimer msgTimer = new MessageSPTTimer( mdata, Tools.getNodeByID( d ) );
 			msgTimer.startRelative( DataRate, this );
@@ -2003,15 +2084,19 @@ public class HCCRFDNode extends Node {
 				break;
 
 			case MONITORING:
-				if ( this.myRole == Roles.COLLABORATOR ) {
+				if ( this.mystatus == Status.MONITORING || this.mystatus == Status.READY ){
 					this.rota = true;
 					sendData();
 				}
-				if ( this.myRole == Roles.CH ){
-					myRole = Roles.COLLABORATOR;
-					this.rota = true;
-					sendData();
-				}
+//				if ( this.myRole == Roles.COLLABORATOR ) {
+//					this.rota = true;
+//					sendData();
+//				}
+//				if ( this.myRole == Roles.CH ){
+//					myRole = Roles.COLLABORATOR;
+//					this.rota = true;
+//					sendData();
+//				}
 				break;
 
 			case SCHEDULE_FEEDBACK:

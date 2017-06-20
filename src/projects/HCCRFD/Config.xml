@@ -8,10 +8,10 @@
 		<dimensions value="2" />
 
 		<!--Length of the deployment field along the x-axis.-->
-		<dimX value="100" /><!--700, 100-->
+		<dimX value="700" /><!--700, 100-->
 
 		<!--Length of the deployment field along the y-axis.-->
-		<dimY value="100" /><!--700, 100-->
+		<dimY value="700" /><!--700, 100-->
 
 		<!--Length of the deployment field along the z-axis.-->
 		<dimZ value="50" />
@@ -235,7 +235,7 @@
 
 <GeometricNodeCollection rMax="80"/>
 
-<UDG rMax="20"/><!--20-->
+<UDG rMax="80"/><!--20-->
 
 <SINR alpha="2" beta="0.7" noise="0"/>
 
@@ -262,16 +262,16 @@
 <RandomMessageTransmission distribution="Uniform" min="0.0001" max="0.0005"/>	
 
 <NodeDelay value="0.1"/>		<!-- node delay for transmitting a packet -->
-<RoundFreq value="1000"/>			<!-- frequency on which the CHs are recomputed -->
+<RoundFreq value="100"/>			<!-- frequency on which the CHs are recomputed -->
 
-<SimTime value="8250"/>
+<SimTime value="22250"/>
 <Density value="42"/>
 <Event>
 	<NumEvents value = "6" />
 	<Time value = "1000" />
-	<DataRate value = "5" />
+	<DataRate value = "30" />
 	<EventSize value = "50" /><!--20-->
-	<EventEnd value = "8100" />
+	<EventEnd value = "22100" />
 	<EventStart1 value = "2000" />
 	<EventStart2 value = "2500" />
 	<EventStart3 value = "3000" />

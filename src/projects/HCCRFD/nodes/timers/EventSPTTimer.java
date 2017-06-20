@@ -18,6 +18,7 @@ public class EventSPTTimer extends Timer {
 		if(((HCCRFDNode)getTargetNode()).insideEvent(getTargetNode().getPosition(),this.eventID)){
 			((HCCRFDNode)getTargetNode()).generateEvent = 1;
 			((HCCRFDNode)getTargetNode()).startDetection();
+			HCCRFDNode.terminals.add(getTargetNode().ID -1);
 		}
 	}
 	public void startEventAbsolute(double absoluteTime, Node n, int eventID){
