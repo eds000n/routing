@@ -24,6 +24,7 @@ import sinalgo.tools.statistics.UniformDistribution;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Random;
@@ -183,6 +184,7 @@ public class DAARPMSWIMNode extends Node {
 	private ArrayList<Integer> filhossend = new ArrayList<Integer>();
 	private ArrayList<Integer> filhosrecv = new ArrayList<Integer>();
 	private double eventEndTime;
+	private double accumDTime = 0;		//Delivery time accumulated until now
 	
 	
 	@Override
@@ -503,7 +505,8 @@ public class DAARPMSWIMNode extends Node {
 				
 			numpacket = numpacket +1;
 			//Message mdata = new DAARPMSWIM_DataMessage(this.ID,this.NextHop,"COORDINATOR", this.HopToSink,myMsgAgg,this.Energy, this.eventnum);			
-			Message mdata = new DAARPMSWIM_DataMessage(this.ID,this.NextHop,"COORDINATOR", this.HopToSink,myMsgAgg,this.battery.getEnergy(), this.eventnum);
+			Message mdata = new DAARPMSWIM_DataMessage(this.ID,this.NextHop,"COORDINATOR", this.HopToSink,myMsgAgg,this.battery.getEnergy(), this.eventnum,this.accumDTime);
+			((DAARPMSWIM_DataMessage)mdata).accumDTime();
 			MessageLeoTimer msgTimer = new MessageLeoTimer(mdata,Tools.getNodeByID(this.NextHop));
 			nextsenddata = Global.currentTime + (DataRate);
 			//Tools.appendToOutput("\n Nó: "+this.ID+" SendTo: "+this.NextHop);
@@ -520,7 +523,8 @@ public class DAARPMSWIMNode extends Node {
 		
 		}else if((this.senddata) && (this.myrole == Roles.COLLABORATOR)){
 			//Message mdata = new DAARPMSWIM_DataMessage(this.ID,this.NextHop,"COLLABORATOR",this.HopToSink,1,this.Energy, this.eventnum);
-			Message mdata = new DAARPMSWIM_DataMessage(this.ID,this.NextHop,"COLLABORATOR",this.HopToSink,1,this.battery.getEnergy(), this.eventnum);
+			Message mdata = new DAARPMSWIM_DataMessage(this.ID,this.NextHop,"COLLABORATOR",this.HopToSink,1,this.battery.getEnergy(), this.eventnum,this.accumDTime);
+			((DAARPMSWIM_DataMessage)mdata).accumDTime();
 			nextsenddata = Global.currentTime + DataRate;
 			MessageLeoTimer msgTimer = new MessageLeoTimer(mdata,Tools.getNodeByID(this.NextHop));
 			msgTimer.startRelative(DataRate,this);
@@ -540,6 +544,7 @@ public class DAARPMSWIMNode extends Node {
 	public void DestructRoute(){
 		this.rota = false;
 		this.HopToEvent = 100000;
+		this.accumDTime = 0;
 		Message DestructRoute = new DAARPMSWIM_DestructRote(this.NextHop, this.eventnum);
 		MessageLeoTimer anexatosinkTimer = new MessageLeoTimer(DestructRoute);
 		anexatosinkTimer.startRelative(0.000001,this);
@@ -852,39 +857,43 @@ public class DAARPMSWIMNode extends Node {
 	
 	public void SentInformationEvents(Message msg, int sender){
 		DAARPMSWIM_DataMessage mdata = (DAARPMSWIM_DataMessage)msg;
-		
+
+		//		Tools.appendToOutput("\n Nó: "+this.ID+" Received: "+mdata.getSender() + " payload: " + mdata.getPayload());
 		Tools.appendToOutput("\n Nó: "+this.ID+" Received: "+mdata.getSender());
 		if(this.ID == mdata.getDest()){
-		
+
 			if (!this.filhos.contains((Object)sender)){
 				this.filhos.add(sender);
 			}
+
+			this.accumDTime = this.accumDTime > mdata.getDeliveryTime() ? this.accumDTime : mdata.getDeliveryTime() ; //save the max
 			
 			//this.Energy = this.Energy - ConsumptionInRecepition;
 			this.battery.spend(EnergyMode.RECEIVE);
-			if ((this.myrole != Roles.SINK) )
+			if ( (this.myrole != Roles.SINK) )
 				if ( (  (this.myrole == Roles.RELAY) && (mdata.getPayload() != "COLLABORATOR"))){
-		
 
 					//Tools.appendToOutput("\n Nó: "+this.ID+" Received: "+mdata.getSender());
-				
+
 					double time = uniformRandom.nextSample();
-				
+
 					if(Global.currentTime > this.nextsenddata)
 						this.senddata =true;
-				
-					
+
+
 					this.aggPackets = this.aggPackets + mdata.getAggPacket();
+					
+
 					this.rota = true;
 					this.setColor(Color.GREEN);
-					
+
 					if(this.myrole != Roles.COLLABORATOR){
 						if((this.eventnum ==1) && (mdata.getEventNum() == 1)){
 							SetNextHop();
 						}else
 							SetNextHopTree(mdata.getEventNum());
 					}
-					
+
 					if ( ((this.filhos.size()<2) && (this.myrole == Roles.RELAY)) ){
 						this.HopToEvent = 0;
 						mdata.setDest(this.NextHop);
@@ -893,58 +902,77 @@ public class DAARPMSWIMNode extends Node {
 						//mdata.setEnergy(this.Energy);
 						mdata.setEnergy(this.battery.getEnergy());
 						mdata.setHopstoTree(this.HopToEvent);
+						
+						
+//						this.accumDTime = this.accumDTime > mdata.getDeliveryTime() ? this.accumDTime : mdata.getDeliveryTime() ; //save the max
+						mdata.setDeliveryTime(this.accumDTime);
+						mdata.accumDTime();
+						
+						System.out.println("acum1");
 						MessageLeoTimer msgTimer = new MessageLeoTimer(mdata,Tools.getNodeByID(this.NextHop));
 						Tools.appendToOutput("\n Nó: "+this.ID+" SendTo: "+this.NextHop+ " Ag: "+mdata.getAggPacket());
 						msgTimer.startRelative(0.00001,this);
 						//this.Energy = this.Energy - ConsumptionInTransmission;
 						this.battery.spend(EnergyMode.SEND);
-						
+
 						DataPackets = DataPackets + 1;
-					if (this.myrole == Roles.RELAY){
-						this.setColor(Color.GREEN);
+						if (this.myrole == Roles.RELAY){
+							this.setColor(Color.GREEN);
+
+						}								
+					}else if( (this.senddata) && (this.myrole == Roles.RELAY)){
+						this.HopToEvent = 0;	
+						mdata.setDest(this.NextHop);
+						mdata.setSender(this.ID);
+						mdata.setHopToSink(this.HopToSink);
+						mdata.setEventNum(this.eventnum);
+						mdata.setHopstoTree(this.HopToEvent);
 						
-					}								
-				}else if( (this.senddata) && (this.myrole == Roles.RELAY)){
-					this.HopToEvent = 0;	
-					mdata.setDest(this.NextHop);
-					mdata.setSender(this.ID);
-					mdata.setHopToSink(this.HopToSink);
-					mdata.setEventNum(this.eventnum);
-					mdata.setHopstoTree(this.HopToEvent);
-					//mdata.setEnergy(this.Energy);
-					mdata.setEnergy(this.battery.getEnergy());
-					mdata.setAggPacket(this.aggPackets);
-					nextsenddata = Global.currentTime + DataRate;
-					//this.Energy = this.Energy - ConsumptionInTransmission;
-					this.battery.spend(EnergyMode.SEND);
-					MessageLeoTimer msgTimer = new MessageLeoTimer(mdata,Tools.getNodeByID(this.NextHop));
-			    	msgTimer.startRelative(0.0000001,this);
-			    	Tools.appendToOutput("\n Nó: "+this.ID+" SendTo: "+this.NextHop+ " Ag: "+mdata.getAggPacket());						
-//			    		infraLeoLog.logln("Sdata t "+ (Global.currentTime+ time)
-//							+ " Ns "+ this.ID 
-//							+ " Ap " + aggPackets 
-//							+ " Nd " + 1);
-			    		DataPackets = DataPackets +1;
-					this.rota = true;
-					this.senddata = false;
-					this.aggPackets = 0;
-					//if(this.myrole == Roles.RELAY)
-					this.setColor(Color.black);
+						System.out.println("acum2");
+						//mdata.setEnergy(this.Energy);
+						mdata.setEnergy(this.battery.getEnergy());
+						mdata.setAggPacket(this.aggPackets);
+//						mdata.setDeliveryTime(this.accumDTime);
 						
+//						this.accumDTime = this.accumDTime > mdata.getDeliveryTime() ? this.accumDTime : mdata.getDeliveryTime() ; //save the max
+						mdata.setDeliveryTime(this.accumDTime);
+						mdata.accumDTime();
+						
+						nextsenddata = Global.currentTime + DataRate;
+						//this.Energy = this.Energy - ConsumptionInTransmission;
+						this.battery.spend(EnergyMode.SEND);
+						MessageLeoTimer msgTimer = new MessageLeoTimer(mdata,Tools.getNodeByID(this.NextHop));
+						msgTimer.startRelative(0.0000001,this);
+						Tools.appendToOutput("\n Nó: "+this.ID+" SendTo: "+this.NextHop+ " Ag: "+mdata.getAggPacket());						
+						//			    		infraLeoLog.logln("Sdata t "+ (Global.currentTime+ time)
+						//							+ " Ns "+ this.ID 
+						//							+ " Ap " + aggPackets 
+						//							+ " Nd " + 1);
+						DataPackets = DataPackets +1;
+						this.rota = true;
+						this.senddata = false;
+						this.aggPackets = 0;
+						this.accumDTime = 0;
+						//if(this.myrole == Roles.RELAY)
+						this.setColor(Color.black);
+
 					}
 				}
-			
+
 
 			if(this.myrole == Roles.SINK){
-				    Recivers = Recivers + 1;//Recebiçoes e não qtd de dados recebidos
-				    packetrecvagg = packetrecvagg + mdata.getAggPacket();
+				Recivers = Recivers + 1;//Recebiçoes e não qtd de dados recebidos
+				packetrecvagg = packetrecvagg + mdata.getAggPacket();
+				mdata.debugMsg();
+				//				    System.out.println("Payload "+mdata.getPayload());
 				//}
 			}
 		}else if ( (this.ID != mdata.getDest()) && (this.filhos.contains((Object)sender) && (this.rota))){
 			this.filhos.remove((Object)sender);
 			if(this.myrole !=Roles.COLLABORATOR && this.myrole != Roles.COORDINATOR)
-			   this.setColor(Color.magenta);
-			       DestructRoute();
+				this.setColor(Color.magenta);
+			DestructRoute();
+			this.accumDTime = 0;
 		}
 	}
 		

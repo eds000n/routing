@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sinalgo>
-	<ProjectSelector windowWidth="800" windowHeight="586" lastChosenProject="HCCRFD" windowPosX="169" windowPosY="103" isMaximized="false" selectedTab="1" />
-	<GUI windowWidth="1366" windowHeight="741" windowPosX="0" windowPosY="0" isMaximized="false" ControlPanelExpandSimulation="true" ControlPanelShowFullViewPanel="false" ControlPanelShowTextPanel="true" ControlPanelShowProjectControl="true" RunOperationIsLimited="false" helpWindowWidth="478" helpWindowHeight="489" helpWindowPosX="200" helpWindowPosY="200" helpWindowIsMaximized="false" />
+	<ProjectSelector windowWidth="800" windowHeight="586" lastChosenProject="SPT" windowPosX="169" windowPosY="103" isMaximized="false" selectedTab="1" />
+	<GUI windowWidth="1366" windowHeight="741" windowPosX="0" windowPosY="0" isMaximized="false" ControlPanelExpandSimulation="true" ControlPanelShowFullViewPanel="false" ControlPanelShowTextPanel="true" ControlPanelShowProjectControl="true" RunOperationIsLimited="true" helpWindowWidth="478" helpWindowHeight="489" helpWindowPosX="200" helpWindowPosY="200" helpWindowIsMaximized="false" />
 	<RandomSeed seedFromPreviousRun="4552" />
 	<App lastSelectedFileDirectory="/home/edson/SinalgoALL/src/projects/GA/" checkForUpdatesAtStartup="false" updateCheckTimeStamp="0" runCmdLineArgs="" />
 	<GenNodesDlg numNodes="512" />

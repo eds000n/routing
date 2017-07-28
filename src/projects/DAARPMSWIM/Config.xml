@@ -137,7 +137,7 @@
 		<DefaultConnectivityModel value="UDG" />
 
 		<!--Default distribution model used when none is specified-->
-		<DefaultDistributionModel value="DAARP_STRESS_CENTRALITY:DAARP_DistributionModel" />
+		<DefaultDistributionModel value="Random" />
 
 		<!--Default interference model used when none is specified-->
 		<DefaultInterferenceModel value="NoInterference" />
@@ -149,7 +149,7 @@
 		<DefaultReliabilityModel value="ReliableDelivery" />
 
 		<!--Default node implementation used when none is specified-->
-		<DefaultNodeImplementation value="DAARP_STRESS_CENTRALITY:DAARP_STRESS_CENTRALITYNode"/>
+		<DefaultNodeImplementation value="DAARPMSWIM:DAARPMSWIMNode"/>
 
 		<!--Show the models implemented by all projects in the drop down options. When set to false, only the models by the selected project and the default project are shown.-->
 		<showModelsOfAllProjects value="false" />

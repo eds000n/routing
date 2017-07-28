@@ -1898,7 +1898,7 @@ public class HCCRFDNode extends Node {
 				//packetrecvagg = packetrecvagg + mdata.getAggPacket();
 				Tools.appendToOutput("SendDataEvent(): HCCRFDDataMessage arrived to the SINK, Receivers: " +this.Recivers +"\n");
 				Tools.appendToOutput("SendDataEvent(): Updated energies: " + mdata.getPayload()+"\n");
-				debugMsg("delivery time: "+ mdata.getDeliveryTime() );
+				mdata.debugMsg();
 //				debugMsg("delivery time: "+ mdata.ge);
 				
 			}
@@ -2062,7 +2062,8 @@ public class HCCRFDNode extends Node {
 				d = FNS(this.my_ch);
 			}
 			
-			Message mdata = new HCCRFDDataMessage( this.ID, d, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.hop_count , 0.0d);
+//			Message mdata = new HCCRFDDataMessage( this.ID, d, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.hop_count , 0.0d);
+			Message mdata = new HCCRFDDataMessage( this.ID, d, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.hop_count , 0);
 //			NN_Table.size();
 			MessageSPTTimer msgTimer = new MessageSPTTimer( mdata, Tools.getNodeByID( d ) );
 			msgTimer.startRelative( DataRate, this );

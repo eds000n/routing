@@ -1,8 +1,10 @@
 package projects.DAARPMSWIM.nodes.messages;
 
+import sinalgo.nodes.messages.DeliveryTimeAwareMessage;
 import sinalgo.nodes.messages.Message;
 
-public class DAARPMSWIM_DataMessage extends Message {
+public class DAARPMSWIM_DataMessage extends DeliveryTimeAwareMessage {
+//public class DAARPMSWIM_DataMessage extends Message {
 	private int dest;
 	private int sender;
 	private int HopToSink;
@@ -13,7 +15,7 @@ public class DAARPMSWIM_DataMessage extends Message {
 	private int EventNum;
 	
 
-	public DAARPMSWIM_DataMessage(int sender, int dest, String payload, int hoptosink, int aggpacket, double energy, int eventnum) {
+	public DAARPMSWIM_DataMessage(int sender, int dest, String payload, int hoptosink, int aggpacket, double energy, int eventnum, double dtime) {
 		this.dest = dest;
 		this.sender = sender;
 		this.HopToSink = hoptosink;
@@ -22,13 +24,14 @@ public class DAARPMSWIM_DataMessage extends Message {
 		this.Energy = energy;
 		
 		this.EventNum = eventnum;
+		this.delivery_time = dtime;
 	}
 
 
 	@Override
 	public Message clone() {
 		// TODO Auto-generated method stub
-		return new DAARPMSWIM_DataMessage(sender,dest,payload,HopToSink,AggPacket,Energy,EventNum);
+		return new DAARPMSWIM_DataMessage(sender,dest,payload,HopToSink,AggPacket,Energy,EventNum, delivery_time);
 	}
 
 	

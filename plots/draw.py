@@ -29,6 +29,8 @@ def embededsubploterrorbarnorm2(x,y, yerror, lname, where):
         yerror=np.array(yerror)/1024
         #ax1.errorbar(x, 100-y, yerr=yerror, label=lname)
         #ax1.grid(True)
+        #plt.set_xticklabels( ['2', '4', '6', '8', '10', '12', '14', '16', '18'] )
+        plt.xticks([2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000] , ['2', '4', '6', '8', '10', '12', '14', '16', '18'])
         plt.errorbar(x, 100-y, yerr=yerror, label=lname)
         plt.grid(True)
     '''else:
@@ -53,7 +55,7 @@ def embededsubploterrorbarnorm2(x,y, yerror, lname, where):
         #ax2.set_xticks([2, 3, 4, 5, 6, 7, 8, 9, 10])'''
 
 def embededsubploterrorbarnorm(ax1, ax2, x,y, yerror, lname, xs, ys, yserror, lsname, where):
-    if where <= 3:
+    if where <= 4:
         m = max(y)
         #m=1024
         print "Number of nods ", m
@@ -67,21 +69,32 @@ def embededsubploterrorbarnorm(ax1, ax2, x,y, yerror, lname, xs, ys, yserror, ls
         print "Number of nods ", ms
         ys=ys*100/ms
         yserror=yserror/ms
-        if where == 4:
-            c='cyan'
-        elif where == 5:
+        if where == 5:
             c='magenta'
         elif where == 6:
             c='yellow'
+        elif where == 7:
+            c='black'
         ax1.errorbar(xs, 100-ys, yerr=yserror, label=lsname, color=c)
         ax2.errorbar(xs, 100-ys, yerr=yserror, label=lsname, color=c)
         ax2.grid(True)
         ax2.set_xlim(4000, 10000)
+        ax1.set_ylim(0, 40)
         #ax2.set_xticks([2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000], ['2', '3', '4', '5', '6', '7', '8', '9', '10'])
+        
         #ax2.set_xticks([2000, 4000, 6000, 8000, 10000] )
-        #ax2.set_xticklabels(['2', '4', '6', '8', '10'])
+        #ax2.set_xticklabels( ['2', '4', '6', '8', '10'] )
+        #ax1.set_xticklabels( ['2', '4', '6', '8', '10'] )
+        #ax1.set_xticks([2000, 4000, 6000, 8000, 10000] )
         ax2.set_xticks([2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000] )
-        ax2.set_xticklabels(['2', '4', '6', '8', '10', '12', '14', '16', '18', '20'])
+        ax2.set_xticklabels( ['2', '4', '6', '8', '10', '12', '14', '16', '18', '20'] )
+        ax1.set_xticklabels( ['2', '4', '6', '8', '10', '12', '14', '16', '18', '20'] )
+        ax1.set_xticks([2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000] )
+        
+        #ax2.set_xticklabels(['2', '4', '6', '8', '10'])
+        #ax2.set_xticks([2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 18000, 20000] )
+        #ax2.set_xticks([2, 4, 6, 8, 10, 12, 14, 16, 18, 20] )
+        #ax2.set_xticklabels(['2', '4', '6', '8', '10', '12', '14', '16', '18', '20'])
         #ax2.set_xticks([2, 3, 4, 5, 6, 7, 8, 9, 10])
 
 def addplot(x, y, lname):
@@ -195,19 +208,23 @@ def main():
             embededsubploterrorbarnorm2(x,y, yerror, label, 2)
             
     if type_g == 5:
-        ax1.legend(bbox_to_anchor=(1.1,0.5))
+        #lgd=ax1.legend(bbox_to_anchor=(1.1,0.5), mode="expand", ncol=4, loc=3)
+        lgd=ax1.legend(bbox_to_anchor=(0., 1.02, 1, .102), mode="expand", ncol=4, loc=3, borderaxespad=0.)
+        #lgd=plt.legend(bbox_to_anchor=(0., 1.02, 1, .102), mode="expand", ncol=4, loc=3)
         ax1.set_xlabel(label_x)
         ax1.set_ylabel(label_y)
         #fig.xlabel(label_x)
         #fig.ylabel(label_y)
     else:
-        plt.legend(loc=0)
+        #lgd=plt.legend(loc=0)
+        lgd=plt.legend(bbox_to_anchor=(0., 1.02, 1, .102), mode="expand", ncol=4, loc=3, borderaxespad=0.)
         plt.xlabel(label_x)
         plt.ylabel(label_y)
     plt.xlim( 0.9*xmin, xmax+0.1*xmin )
     plt.title(title)
     if save:
-        plt.savefig(save_in);
+        plt.savefig(save_in, bbox_extra_artists=(lgd,), bbox_inches='tight');
+        #plt.savefig(save_in, bbox_extra_artists=(lgd));
     else:
         plt.show()
 

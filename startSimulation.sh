@@ -1,7 +1,7 @@
 #!/bin/bash
 #Start ALL the scenarios of simulation
 
-DATARATE=5
+DATARATE=30	#actually, notification rate: means the source nodes send a packet each 30seconds
 F_FACTOR=1
 K_FACTOR=1
 
@@ -124,7 +124,8 @@ function scenario1(){
 	echo "#scenario1: varying nodes $1 $2" >> .cmdfile
 	ne=6
 	density=40
-	nodes="128 256 512 1024 2048"
+	#nodes="128 256 512 1024 2048"
+	nodes="1024"
 	for n in $nodes 
 	do
 		exec_simulation "$1" $2 $ne $n $density 0
@@ -149,7 +150,8 @@ function scenario2(){
 # density={20,30,42} , ne=6, nodes=1024
 function scenario3(){
 	echo "#scenario3: vaying density $1 $2" >> .cmdfile
-	density="10 20 30" #42 is already included in scenario1
+	#density="10 20 30" #42 is already included in scenario1
+	density="10" #42 is already included in scenario1
 	n=1024
 	ne=6
 	for d in $density
@@ -213,8 +215,10 @@ function scenario8(){
 function scenario9(){
 	echo "#scenario9: random event init times $1 $2" >> .cmdfile
 	ne="6"
-	n="512"
-	density="10 20 30 40"
+	#n="512"
+	n="1024"
+	#density="10 20 30 40"
+	density="40"
 	for den in $density
 	do
 		#hours       1h   2h   3h    4h    5h"
@@ -231,12 +235,12 @@ function scenarios(){
 	seed=$2
 	scenario1 "$a" $seed 	#THIS ONE
 	#scenario2 "$a" $seed
-	scenario3 "$a" $seed	# AND THIS
+	#scenario3 "$a" $seed	# AND THIS
 	#scenario4 "$a" $seed
 	#scenario5 "$a" $seed
 	#scenario6 "$a" $seed
 	#scenario7 "$a" $seed
-	scenario9 "$a" $seed	#AND THIS
+	#scenario9 "$a" $seed	#AND THIS
 }
 
 function show_help()

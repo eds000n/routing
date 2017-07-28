@@ -8,10 +8,10 @@
 		<dimensions value="2" />
 
 		<!--Length of the deployment field along the x-axis.-->
-		<dimX value="700" /><!--700, 100-->
+		<dimX value="100" /><!--700, 100-->
 
 		<!--Length of the deployment field along the y-axis.-->
-		<dimY value="700" /><!--700, 100-->
+		<dimY value="100" /><!--700, 100-->
 
 		<!--Length of the deployment field along the z-axis.-->
 		<dimZ value="50" />
@@ -235,7 +235,7 @@
 
 <GeometricNodeCollection rMax="80"/>
 
-<UDG rMax="80"/><!--20-->
+<UDG rMax="30"/><!--80, 20-->
 
 <SINR alpha="2" beta="0.7" noise="0"/>
 

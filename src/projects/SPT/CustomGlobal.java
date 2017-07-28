@@ -38,6 +38,7 @@ package projects.SPT;
 
 
     
+import java.awt.Rectangle;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Iterator;
@@ -46,6 +47,8 @@ import java.util.Locale;
 import javax.swing.JOptionPane;
 
 import projects.SPT.nodes.nodeImplementations.SPTNode;
+import sinalgo.io.eps.ExportException;
+import sinalgo.io.eps.Exporter;
 import sinalgo.nodes.Node;
 import sinalgo.runtime.AbstractCustomGlobal;
 import sinalgo.tools.Tools;
@@ -154,6 +157,13 @@ public class CustomGlobal extends AbstractCustomGlobal{
 		
 		//double Rate =  (double) 60 / SPTNode.DataRate;
 
+//		try {
+//			Exporter e = new Exporter();
+//			e.export(new Rectangle(0, 0, Tools.getGraphPanel().getWidth(), Tools.getGraphPanel().getHeight()), Tools.getPositionTransformation());
+//		} catch (ExportException e1) {
+//			e1.printStackTrace();
+//		}
+//		
 //		if(SPTNode.Edges>1){
 			SPTNode.SPT.logln( 
 				SPTNode.EventsTimes+ "\t"

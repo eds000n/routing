@@ -294,7 +294,7 @@ function plot_ns(){
 	tmps_e=""
 	tmps_t=""
 	ne=6
-	density=42
+	density=40
 	nodes="128 256 512 1024 2048"
 
 	for logfile in $@
@@ -428,6 +428,85 @@ function plot_scenario7(){
 	echo ""
 }
 
+#DOING
+function plot_dtime(){
+	tmps_t=""
+	for logfile in $@
+	do
+		bfile=`basename $logfile`
+		n=`echo $bfile | cut -d"-" -f1`
+		ne=`echo $bfile | cut -d"-" -f2`
+		de=`echo $bfile | cut -d"-" -f3`
+		#seed=`echo $bfile | cut -d"-" -f4`
+		dr=`echo $bfile | cut -d"-" -f5`
+		st=`echo $bfile | cut -d"-" -f6`
+		alg=`echo $bfile | cut -d"-" -f7`
+		bfile="scenariod.${n}${ne}${de}${dr}${alg}.data"
+		if [ -e $bfile ]
+		then
+			rm $bfile
+			#rm .tmp$bfile
+		fi
+		cp .dtimes ${bfile}
+		tmps_t="$tmps_t .tmp${bfile}"
+	done
+	tmps_t=`echo $tmps_t | xargs -n1 | sort -u | xargs`
+	for logfile in $@
+	do
+		bfile=`basename $logfile`
+		n=`echo $bfile | cut -d"-" -f1`
+		ne=`echo $bfile | cut -d"-" -f2`
+		de=`echo $bfile | cut -d"-" -f3`
+		#seed=`echo $bfile | cut -d"-" -f4`
+		dr=`echo $bfile | cut -d"-" -f5`
+		st=`echo $bfile | cut -d"-" -f6`
+		alg=`echo $bfile | cut -d"-" -f7`
+		bfile="scenariod.${n}${ne}${de}${dr}${alg}.data"
+		grep DeliveryTimeAwareMessage $logfile | sed "s/[a-zA-Z]\|\[\|\]\| *//g" > .tmp
+		sed -i "s/:/ /g" .tmp
+		#lines=`wc -l .tmp | cut -d" " -f1` 
+		awk -v initt=2000 -v step=400 '
+		BEGIN{max=0}
+		{
+			if ( $1 > initt + step ){
+				print initt" "max;
+				initt=initt+step;
+				max=0;
+			}
+			else
+				if($2>max)
+					max=$2; 
+		}
+		END{}
+		#END{print time" "max}
+		' .tmp > .tmp1
+		# .tmp1 has two columns, the first is the time and the second is the delivery time
+		rm .tmp
+
+		#paste ${bfile} .tmp > .tmp2
+		if [ ! -e .dtimes ]
+		then
+			cat .tmp1 | cut -d" " -f1 > .dtimes
+		fi
+		cat .tmp1 | cut -d" " -f2 > .tmp2
+		# .tmp2 only has delivery time for the current log file
+		paste ${bfile} .tmp2 > .tmp3
+		mv .tmp3 ${bfile}
+		# ${bfile} has the accumulated values for delivery time
+		rm .tmp1
+		rm .tmp2
+		
+		if [ -e .tmp$bfile ]
+		then
+			rm .tmp$bfile
+		fi
+		awk -f ci2.awk -v out_file=".tmp$bfile" $bfile 
+	done
+		#rm .dtimes
+	./draw.py -T 1 -t "Delivery Time" -x "Simulation Time" -y "Delivery Time" -s dtime.png $tmps_t
+	echo "./draw.py -T 1 -t "Delivery Time" -x "Simulation Time" -y "Delivery Time" -s dtime.png $tmps_t"
+}
+
 function show_help(){
 cat <<HELP
 Usage: ./plotAll.sh GALog.txt SPTLog.txt DAARPMSWIM.txt
@@ -443,7 +522,8 @@ then
 	show_help
 	exit 0
 fi
-plot_lifetime $@
+#plot_lifetime $@
+plot_dtime $@
 #plot_ns $@
 #plot_ne $@
 #plot_density $@

@@ -26,6 +26,16 @@ Errorbar Normalized plot (in porcentage)
 ./draw -T 4 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
 file2.data file3.data ...
 
+Errorbar Embedded normalized subplot
+====================================
+./draw -T 5 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
+file2.data file3.data ...
+
+Errorbar Embedded normalized subplot2
+=====================================
+./draw -T 6 -t titulo -x rotulo_x -y rotulo_y -s file.png file1.data
+file2.data file3.data ...
+
 where -t defines the graph title, -x the x_axis title, -y the y_axis title and
 -s the filename. By default the script only shows the graphic, it doesn't save
 it

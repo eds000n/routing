@@ -248,7 +248,8 @@ public class SimpleEnergy implements IEnergy {
 					/*****************************************************************
 					 * This should not be here!!!
 					 */
-					System.out.println(">>> distribued " + nodeID + " reported itself as dead with battery of " + getEnergy());
+					n.debugMsg(">>> distribued " + nodeID + " reported itself as dead with battery of " + getEnergy(),2);
+//					System.out.println(">>> distribued " + nodeID + " reported itself as dead with battery of " + getEnergy());
 					ArrayList<Integer> neighbors = new ArrayList<>();
 					for ( int i=0; i<n.listAll.size(); i++ ){
 						HCCRFDNode neighbor_node = (HCCRFDNode)Tools.getNodeByID(n.listAll.get(i)); 

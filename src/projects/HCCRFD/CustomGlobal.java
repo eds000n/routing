@@ -38,6 +38,7 @@ package projects.HCCRFD;
 
 
     
+import java.awt.Rectangle;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -58,8 +59,11 @@ import projects.HCCRFD.nodes.nodeImplementations.HCCRFDNode;
 import projects.SPT.nodes.nodeImplementations.SPTNode;
 import sinalgo.configuration.Configuration;
 import sinalgo.configuration.CorruptConfigurationEntryException;
+import sinalgo.io.eps.ExportException;
+import sinalgo.io.eps.Exporter;
 import sinalgo.nodes.Node;
 import sinalgo.runtime.AbstractCustomGlobal;
+import sinalgo.runtime.Global;
 import sinalgo.tools.Tools;
 import sinalgo.tools.statistics.Distribution;
 
@@ -190,6 +194,8 @@ public class CustomGlobal extends AbstractCustomGlobal{
 //			}
 //			HCCRFDNode.Edges += HCCRFDNode.terminals.size();
 //		}
+		
+		
 		if(HCCRFDNode.Edges>1){
 			HCCRFDNode.HCCRFD.logln( 
 				HCCRFDNode.EventsTimes+ "\t"

@@ -272,6 +272,7 @@ public class SPTNode extends Node {
 							mdata.setDest(this.NextHopSink);
 							mdata.setSender(this.ID);
 							mdata.setHopToSink(this.HopToSink);
+							mdata.accumDTime();
 							MessageSPTTimer msgTimer = new MessageSPTTimer(mdata,Tools.getNodeByID(this.NextHopSink));
 							enviados = enviados + 1;
 							msgTimer.startRelative(0.1,this);	//The message is sent almost inmediately
@@ -288,6 +289,7 @@ public class SPTNode extends Node {
 							if (this.myRole == Roles.RELAY)
 								this.setColor(Color.CYAN);
 							this.aggregatePCKT = 0;
+							
 						}//else if ((this.senddata) && (this.myRole != Roles.COLLABORATOR)){
 						else if ((this.senddata)){
 							mdata.setDest(this.NextHopSink);
@@ -295,6 +297,7 @@ public class SPTNode extends Node {
 							mdata.setHopToSink(this.HopToSink);
 							mdata.setEventNum(this.eventnum);
 							mdata.setAggPacket(this.aggregatePCKT);
+							mdata.accumDTime();
 							nextsenddata = Global.currentTime + DataRate;
 
 							MessageSPTTimer msgTimer = new MessageSPTTimer(mdata,Tools.getNodeByID(this.NextHopSink));
@@ -311,7 +314,7 @@ public class SPTNode extends Node {
 							this.aggregatePCKT = 0;
 							//if(this.myrole == Roles.RELAY)
 							this.setColor(Color.black);
-
+							
 						}
 					}
 
@@ -326,6 +329,8 @@ public class SPTNode extends Node {
 						Receivers = Receivers +1;
 						packetrecvagg = packetrecvagg + mdata.getAggPacket();
 						Tools.appendToOutput("handleMessages(): SPTDataMessage arrived to the SINK, Receivers: " +this.Receivers +"\n");
+						mdata.debugMsg();
+						System.out.println("Payload "+mdata.getPayload());
 					}
 
 				}
@@ -573,7 +578,8 @@ public class SPTNode extends Node {
 		if((this.myRole == Roles.COLLABORATOR) && (this.filhos.size() ==0)){
 			this.setColor(Color.RED);
 			this.timerTREE.tnoStartRelative(DataRate, this, TNO.MONITORING);	
-			Message mdata = new SPTDataMessage(this.ID,this.NextHopSink,"Sink",this.HopToSink,1,100,eventnum);
+			Message mdata = new SPTDataMessage(this.ID,this.NextHopSink,this.ID+" to Sink",this.HopToSink,1,100,eventnum,0);
+			((SPTDataMessage)mdata).accumDTime();
 			MessageSPTTimer msgTimer = new MessageSPTTimer(mdata,Tools.getNodeByID(this.NextHopSink));
 			time += (double)DataRate;
 			msgTimer.startRelative(DataRate,this);

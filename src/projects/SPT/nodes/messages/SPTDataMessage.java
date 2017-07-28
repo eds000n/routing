@@ -1,5 +1,6 @@
 package projects.SPT.nodes.messages;
 
+import sinalgo.nodes.messages.DeliveryTimeAwareMessage;
 import sinalgo.nodes.messages.Message;
 
 /**
@@ -9,7 +10,8 @@ import sinalgo.nodes.messages.Message;
  * @author edson
  *
  */
-public class SPTDataMessage extends Message {
+public class SPTDataMessage extends DeliveryTimeAwareMessage {
+//public class SPTDataMessage extends Message {
 	private int dest;
 	private int sender;
 	private int HopToSink;
@@ -19,7 +21,7 @@ public class SPTDataMessage extends Message {
 	private int EventNum;
 
 
-	public SPTDataMessage(int sender, int dest, String payload, int hoptosink, int aggpacket, double energy, int eventnum) {
+	public SPTDataMessage(int sender, int dest, String payload, int hoptosink, int aggpacket, double energy, int eventnum, double dtime) {
 		this.dest = dest;
 		this.sender = sender;
 		this.HopToSink = hoptosink;
@@ -27,6 +29,7 @@ public class SPTDataMessage extends Message {
 		this.AggPacket = aggpacket;
 		this.Energy = energy;
 		this.EventNum = eventnum;
+		this.delivery_time = dtime;
 	}
 
 
@@ -34,7 +37,8 @@ public class SPTDataMessage extends Message {
 	@Override
 	public Message clone() {
 		// TODO Auto-generated method stub
-		return new SPTDataMessage(sender,dest,payload,HopToSink,AggPacket,Energy,EventNum);
+		//return new SPTDataMessage(sender,dest,payload,HopToSink,AggPacket,Energy,EventNum);
+		return new SPTDataMessage(sender,dest,payload,HopToSink,AggPacket,Energy,EventNum, delivery_time);
 	}
 
 

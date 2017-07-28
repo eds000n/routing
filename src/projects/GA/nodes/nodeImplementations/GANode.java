@@ -879,6 +879,7 @@ public class GANode extends Node {
 			}
 		}
 	}
+	
 	/**
 	 * Makes a BFS to set nodes as disconnected from the terminal.
 	 * @param v1 disconnected node 0-indexed
@@ -1606,7 +1607,9 @@ public class GANode extends Node {
 				Tools.appendToOutput("SendDataEvent(): GADataMessage arrived to the SINK, Receivers: " +this.Recivers +"\n");
 				Tools.appendToOutput("SendDataEvent(): Updated energies: " + mdata.getPayload()+"\n");
 //				debugMsg("delivery time: "+ (Global.currentTime - mdata.getDeliveryTime()));
-				debugMsg("delivery time: "+ mdata.getDeliveryTime() );
+				//debugMsg("delivery time: "+ mdata.getDeliveryTime() );
+				mdata.debugMsg();
+				System.out.println("Payload "+mdata.getPayload());
 				//For handling energies
 				if ( objFunction==2 ||objFunction==3 ){
 					boolean run = false;
@@ -1870,6 +1873,8 @@ public class GANode extends Node {
 			//Message mdata = new GADataMessage( this.ID, this.NextHopSink, "Sink", this.HopToSink );
 			//Message mdata = new GADataMessage( this.ID, this.NextHopSink, new StringBuffer(this.ID + "," + this.battery.getEnergy()), this.HopToSink );
 			Message mdata = new GADataMessage( this.ID, this.NextHopSink, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.HopToSink , 0.0d);
+			((GADataMessage)mdata).accumDTime();
+//			Message mdata = new GADataMessage( this.ID, this.NextHopSink, new StringBuffer(this.ID + "," + this.battery.getTotalSpentEnergy()), this.HopToSink);
 			MessageSPTTimer msgTimer = new MessageSPTTimer( mdata, Tools.getNodeByID( this.NextHopSink ) );
 			msgTimer.startRelative( DataRate, this );
 			// Tools.appendToOutput( "SData :" + this.ID + "\n" );
